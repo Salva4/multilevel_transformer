@@ -1,0 +1,23 @@
+#!/bin/bash -l
+#SBATCH --job-name="job00_gpu_conv_task11__langmod"
+#SBATCH --account="c24"
+#SBATCH --mail-type=ALL
+#SBATCH --time=24:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-core=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
+#SBATCH --partition=normal
+#SBATCH --constraint=gpu
+#SBATCH --hint=nomultithread
+#SBATCH --error=/users/msalvado/prova_transfpytorch/task11__langmod/outputs/continuous_transformer__20230404_01_task11_compare/errors/error_flags_ContTrans_nnodes1_ntasksxnode1_procgpu_nepochs5000-5000-5000-5000_nlayers2-4-8-16.txt
+#SBATCH --output=/users/msalvado/prova_transfpytorch/task11__langmod/outputs/continuous_transformer__20230404_01_task11_compare/outputs/ContTrans_nnodes1_ntasksxnode1_procgpu_nepochs5000-5000-5000-5000_nlayers2-4-8-16.txt
+
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+export PYTHONUNBUFFERED=true
+
+RUNPATH=/users/msalvado/prova_transfpytorch/task11__langmod/src/
+conda activate env1
+cd $RUNPATH
+
+srun python3 -u main_MLInit.py --num_epochs 5000-5000-5000-5000 --num_layers 2-4-8-16

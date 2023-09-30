@@ -1,0 +1,23 @@
+#!/bin/bash -l
+#SBATCH --job-name="job02_gpu_conv_task8__linalg"
+#SBATCH --account="c24"
+#SBATCH --mail-type=ALL
+#SBATCH --time=24:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-core=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
+#SBATCH --partition=normal
+#SBATCH --constraint=gpu
+#SBATCH --hint=nomultithread
+#SBATCH --error=/users/msalvado/prova_transfpytorch/task8__linalg/outputs/continuous_transformer__20230504_03_MGOpt/errors/error_flags_ContTrans_nnodes1_ntasksxnode1_procgpu_μ1_ν1_SGD_MGOpt_skip_Euler.txt
+#SBATCH --output=/users/msalvado/prova_transfpytorch/task8__linalg/outputs/continuous_transformer__20230504_03_MGOpt/outputs/ContTrans_nnodes1_ntasksxnode1_procgpu_μ1_ν1_SGD_MGOpt_skip_Euler.txt
+
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+export PYTHONUNBUFFERED=true
+
+RUNPATH=/users/msalvado/prova_transfpytorch/task8__linalg/src/
+conda activate env1
+cd $RUNPATH
+
+srun python3 -u main_MGOpt.py --μ 1 --ν 1 --opt SGD --skip
