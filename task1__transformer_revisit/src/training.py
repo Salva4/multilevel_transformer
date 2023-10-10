@@ -2,9 +2,9 @@ import numpy as np
 import torch
 
 from input_pipeline import PAD_ID
-import MGOPT_NN
+# import MGOPT_NN
 
-import tqdm
+# import tqdm
 
 ## Colored output in terminal
 # try:
@@ -153,111 +153,162 @@ def monitor_accs(eval_dl, model, device, inputs_tr, targets_tr, batch_ctr):
 
 
 ################################# MG/OPT
-def train_MGOPT(
-	train_dl,
-	eval_dl,
-	models, 
-	optimizers, 
-	criterion,
-	device,
-	#num_epochs,
-	n_monitoring,
-	n_V_cycles,
-	mus_nus,
-	lr_MGOPT,
-	pr=False,
-):
-	# batch_epochs = num_epochs 	# 1 epoch is too large
-	batch_ctr = 0
-
-	## Preparation
-	for model in models:
-		model.train()
-
-	laux = mus_nus.strip().split('_')
-	assert len(laux) == len(models)
-	mus_nus = []
-	for i, mu_nu in enumerate(laux):
-		if i == 0:
-			mu = int(mu_nu)
-			mus_nus.append(mu)
-
-		else:
-			mu, nu = (int(x) for x in mu_nu.strip().split('-'))
-			mus_nus.append((mu, nu))
-
-	loss_fn = lambda outputs, targets: criterion(outputs.reshape(-1, outputs.shape[-1]), 
-				  								 targets.reshape(-1))
-
-	# MGOPT_NN.initIR(models)       <-- not necessary bc iterpolation & restriction are performed w/o matrix mult
-	## TODO: optimize ? by interp/restr weights by matrix mult instead of 1 by 1
-
-	avoid_MGOPT = abs(lr_MGOPT - (-1)) < 1e-5 		# if lr_MGOPT == -1., then avoid MG_OPT
-
-	## Execution
-	if not avoid_MGOPT:
-		print('Performing MGOPT')
-		for i, batch in tqdm.tqdm(enumerate(train_dl)):
-			inputs, targets = batch
-			# inputs, targets = inputs.long(), targets.long()
-			inputs, targets = inputs.to(device), targets.to(device)#targets?
-			# inputs = inputs.to(device) # only inputs, no targets 1/2
-
-			for j in range(n_V_cycles):
-				if pr: color(f'\tV-cycle #{j}', 'yellow')
-				MGOPT_NN.V_cycle(models, inputs, targets, optimizers, loss_fn, mus_nus, lr_MGOPT)
-
-			model = models[-1]
-
-			if i%n_monitoring == 0:
-				## Monitoring
-				monitor_accs(eval_dl, model, device, inputs, targets, batch_ctr)
-
-			batch_ctr += 1
-			# if batch_ctr == batch_epochs:
-			# 	break
-
-			# if ...
-				# for g in optimizer.param_groups:
-				# 	g['lr'] *= .5
-				# print('change lr *= .5')
-	else:
-		print('Avoiding MGOPT')
-		model = models[-1]
-		optimizer = optimizers[-1]
-		model.train()
-		for i, batch in tqdm.tqdm(enumerate(train_dl)):
-			inputs, targets = batch
-			# inputs, targets = inputs.long(), targets.long()
-			inputs, targets = inputs.to(device), targets.to(device)#targets?
-			# inputs = inputs.to(device) # only inputs, no targets 1/2
-
-			outputs = model(inputs)
-			loss = loss_fn(outputs, targets)
-			optimizer.zero_grad()
-			loss.backward()
-			optimizer.step()
-
-			model = models[-1]
-
-			if i%n_monitoring == 0:
-				## Monitoring
-				monitor_accs(eval_dl, model, device, inputs, targets, batch_ctr)
-
-			batch_ctr += 1
-			# if batch_ctr == batch_epochs:
-			# 	break
-
-			# if ...
-				# for g in optimizer.param_groups:
-				# 	g['lr'] *= .5
-				# print('change lr *= .5')
-
-	return model
-
+# def train_MGOPT(
+# 	train_dl,
+# 	eval_dl,
+# 	models, 
+# 	optimizers, 
+# 	criterion,
+# 	device,
+# 	#num_epochs,
+# 	n_monitoring,
+# 	n_V_cycles,
+# 	mus_nus,
+# 	lr_MGOPT,
+# 	pr=False,
+# ):
+# 	# batch_epochs = num_epochs 	# 1 epoch is too large
+# 	batch_ctr = 0
+# 
+# 	## Preparation
+# 	for model in models:
+# 		model.train()
+# 
+# 	laux = mus_nus.strip().split('_')
+# 	assert len(laux) == len(models)
+# 	mus_nus = []
+# 	for i, mu_nu in enumerate(laux):
+# 		if i == 0:
+# 			mu = int(mu_nu)
+# 			mus_nus.append(mu)
+# 
+# 		else:
+# 			mu, nu = (int(x) for x in mu_nu.strip().split('-'))
+# 			mus_nus.append((mu, nu))
+# 
+# 	loss_fn = lambda outputs, targets: criterion(outputs.reshape(-1, outputs.shape[-1]), 
+# 				  								 targets.reshape(-1))
+# 
+# 	# MGOPT_NN.initIR(models)       <-- not necessary bc iterpolation & restriction are performed w/o matrix mult
+# 	## TODO: optimize ? by interp/restr weights by matrix mult instead of 1 by 1
+# 
+# 	avoid_MGOPT = abs(lr_MGOPT - (-1)) < 1e-5 		# if lr_MGOPT == -1., then avoid MG_OPT
+# 
+# 	## Execution
+# 	if not avoid_MGOPT:
+# 		print('Performing MGOPT')
+# 		for i, batch in tqdm.tqdm(enumerate(train_dl)):
+# 			inputs, targets = batch
+# 			# inputs, targets = inputs.long(), targets.long()
+# 			inputs, targets = inputs.to(device), targets.to(device)#targets?
+# 			# inputs = inputs.to(device) # only inputs, no targets 1/2
+# 
+# 			for j in range(n_V_cycles):
+# 				if pr: color(f'\tV-cycle #{j}', 'yellow')
+# 				MGOPT_NN.V_cycle(models, inputs, targets, optimizers, loss_fn, mus_nus, lr_MGOPT)
+# 
+# 			model = models[-1]
+# 
+# 			if i%n_monitoring == 0:
+# 				## Monitoring
+# 				monitor_accs(eval_dl, model, device, inputs, targets, batch_ctr)
+# 
+# 			batch_ctr += 1
+# 			# if batch_ctr == batch_epochs:
+# 			# 	break
+# 
+# 			# if ...
+# 				# for g in optimizer.param_groups:
+# 				# 	g['lr'] *= .5
+# 				# print('change lr *= .5')
+# 	else:
+# 		print('Avoiding MGOPT')
+# 		model = models[-1]
+# 		optimizer = optimizers[-1]
+# 		model.train()
+# 		for i, batch in tqdm.tqdm(enumerate(train_dl)):
+# 			inputs, targets = batch
+# 			# inputs, targets = inputs.long(), targets.long()
+# 			inputs, targets = inputs.to(device), targets.to(device)#targets?
+# 			# inputs = inputs.to(device) # only inputs, no targets 1/2
+# 
+# 			outputs = model(inputs)
+# 			loss = loss_fn(outputs, targets)
+# 			optimizer.zero_grad()
+# 			loss.backward()
+# 			optimizer.step()
+# 
+# 			model = models[-1]
+# 
+# 			if i%n_monitoring == 0:
+# 				## Monitoring
+# 				monitor_accs(eval_dl, model, device, inputs, targets, batch_ctr)
+# 
+# 			batch_ctr += 1
+# 			# if batch_ctr == batch_epochs:
+# 			# 	break
+# 
+# 			# if ...
+# 				# for g in optimizer.param_groups:
+# 				# 	g['lr'] *= .5
+# 				# print('change lr *= .5')
+# 
+# 	return model
 ########################################
 
 
+############### Conventional training
+def train_epoch(
+	train_dl,
+	eval_dl,
+	model, 
+	optimizer, 
+	criterion,
+	device,
+):
+	## Training
+	model.train()
+	for i, batch in enumerate(train_dl):
+		inputs, targets = batch
+		# inputs, targets = inputs.long(), targets.long()
+		inputs, targets = inputs.to(device), targets.to(device)
+		# inputs = inputs.to(device) # only inputs, no targets 1/2
+
+		outputs = model(inputs)#.cpu() 2/2
+		loss = criterion(
+			outputs.reshape(-1, outputs.shape[-1]), 
+			targets.reshape(-1)
+		)
+		optimizer.zero_grad()
+		loss.backward()
+		optimizer.step()
+
+	## Evaluation
+	model.eval()
+	with torch.no_grad():
+		# ## Training accuracy
+		# predictions = outputs.argmax(axis=-1)
+		# tr_accuracy = ((predictions == targets)*(targets != PAD_ID)
+		# 	).sum()/(targets != PAD_ID).sum()
+
+		## Validation accuracy
+		corr, tot = 0, 0
+		for i, batch in enumerate(eval_dl):
+			inputs, targets = batch 	# both inputs & targets --> long
+			# inputs, targets = inputs.long(), targets.long()
+			inputs, targets = inputs.to(device), targets.to(device)
+
+			outputs = model(inputs)
+			predictions = outputs.argmax(axis=-1)
+			
+			corr += ((predictions == targets)*(targets != PAD_ID)).sum().item()
+			tot += (targets != PAD_ID).sum().item()
+
+		## Validation data: 5x187 + 182
+		va_accuracy = corr/tot
+		
+	return model, va_accuracy
+########################################
 
 
 

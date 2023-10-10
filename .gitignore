@@ -1,1 +1,7 @@
 *.txt
+*.DS_Store
+*pycache*
+*.zip
+._*
+data*
+outputs*

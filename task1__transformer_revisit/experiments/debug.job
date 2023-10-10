@@ -10,14 +10,14 @@
 #SBATCH --partition=debug
 #SBATCH --constraint=gpu
 #SBATCH --hint=nomultithread
-#SBATCH --error=/users/msalvado/MLT/ML_PQ/outputs/continuous_transformer__20221203_01_samebut_Adam/errors/error_flags_ContTrans_nnodes1_ntasksxnode1_procgpu_lr1e-2_optimAdam_initxavier_petorch_N4_T01_epochs1000000000_batchsize16_nlvls2_nVcycles1_musnus1--1-1_lrMGOPT-1.00.txt
-#SBATCH --output=/users/msalvado/MLT/ML_PQ/outputs/continuous_transformer__20221203_01_samebut_Adam/outputs/ContTrans_nnodes1_ntasksxnode1_procgpu_lr1e-2_optimAdam_initxavier_petorch_N4_T01_epochs1000000000_batchsize16_nlvls2_nVcycles1_musnus1--1-1_lrMGOPT-1.00.txt
+#SBATCH --output=/users/msalvado/prova_transfpytorch/multilevel_transformer/task1__transformer_revisit/outputs/continuous_transformer__20231002_revisit_conventional_training/outputs/ContTrans_nnodes1_ntasksxnode1_procgpu_lr1e-2_optimAdam_initxavier_petorch_N4_T01_epochs1000000000_batchsize8.txt
+#SBATCH --error=/users/msalvado/prova_transfpytorch/multilevel_transformer/task1__transformer_revisit/outputs/continuous_transformer__20231002_revisit_conventional_training/errors/error_flags_ContTrans_nnodes1_ntasksxnode1_procgpu_lr1e-2_optimAdam_initxavier_petorch_N4_T01_epochs1000000000_batchsize8.txt
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export PYTHONUNBUFFERED=true
 
-RUNPATH=/users/msalvado/MLT/ML_PQ/src
+RUNPATH=/users/msalvado/prova_transfpytorch/multilevel_transformer/task1__transformer_revisit/src
 cd $RUNPATH
-source activate MLT_gpu
+conda activate env1
 
-srun python3 -u main.py --output_fn ContTrans_nnodes1_ntasksxnode1_procgpu_lr1e-2_optimAdam_initxavier_petorch_N4_T01_epochs1000000000_batchsize16_nlvls2_nVcycles1_musnus1--1-1_lrMGOPT-1.00 --models_dir /users/msalvado/MLT/ML_PQ/outputs/continuous_transformer__20221203_01_samebut_Adam/models --model continuoustransformer --lr 1e-2 --optim Adam --init xavier --pe torch --N 4 --T 1.0 --num_epochs 1000000000 --batch_size 16 --n_monitoring 1 --n_lvls 2 --n_V_cycles 1 --mus_nus 1_1-1 --lr_MGOPT -1.0
+srun python3 -u main.py --output_fn ContTrans_nnodes1_ntasksxnode1_procgpu_lr1e-2_optimAdam_initxavier_petorch_N4_T01_epochs1000000000_batchsize8 --models_dir /users/msalvado/MLT/ML_PQ/outputs/continuous_transformer__20221203_01_samebut_Adam/models --model continuoustransformer --lr 1e-2 --optim Adam --init xavier --pe torch --N 4 --T 4.0 --num_epochs 1000000000 --batch_size 8
