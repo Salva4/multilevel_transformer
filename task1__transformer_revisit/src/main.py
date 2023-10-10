@@ -1,32 +1,18 @@
+import argparse
 import numpy as np 
 # import matplotlib.pyplot as plt
-
+import sys
+import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import tqdm
 
 import input_pipeline
 import preprocessing
 from models import *    # Linear, Transformer
 from continuous_block import *  # ContinuousTransformer
 from training import train_epoch#train_MGOPT
-
-import argparse
-import time
-import sys
-import tqdm
-
-## Colored output in terminal
-# try:
-#   from termcolor import colored
-# except:
-#   color = lambda z, col: print(z)
-# else:
-#   color = lambda z, col: print(colored(z), col)
-color = lambda z, col: print(z)
-
-sys.path.append('../utils')
-import remove_undesired
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=str, required=True)
@@ -42,8 +28,9 @@ parser.add_argument('--N',
   string of ints joint by '-'; example: 3-5-9. 
   *comment1: N was the number of basis functions (i.e. points to interpolate) --> (power of 2) + 1
   *comment2: num_epochs had to correspond. example: '10-20-40'.
-- Current implementation (MG/OPT):
+- Previous implementation (MG/OPT):
   integer, must be multiple of a 2^(#lvls)
+- Current implementation (conventional, comparison with torchbraid): any integer
 ''',
 )#default=4)
 parser.add_argument('--T', type=float, required=True)#default=1.)
@@ -201,6 +188,8 @@ def main():
   ########################################
 
   ################################# Conventional training
+  torch.manual_seed(0)
+
   model = Model(
     init_method = args.init.capitalize(),
     encoding = args.pe.capitalize(), 
@@ -216,6 +205,7 @@ def main():
   ########################################
 
   print()
+  torch.manual_seed(1)
   print(f'3. Training models')
   for epoch in tqdm.tqdm(range(args.num_epochs)):
     # model = train_MGOPT(train_dl, eval_dl, models, optimizers, criterion, device, #args.num_epochs, 
@@ -230,7 +220,6 @@ def main():
 
 if __name__ == '__main__':
   main()
-  # remove_undesired.do()
 
 
 
