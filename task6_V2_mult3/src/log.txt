@@ -1,1 +1,0 @@
-Loss_tr: 0.2112, Acc_tr: 100.00%, Loss_va: 0.1889, Acc_va: 50.00%
