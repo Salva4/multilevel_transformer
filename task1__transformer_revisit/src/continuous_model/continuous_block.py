@@ -24,7 +24,7 @@ class ContinuousBlock(nn.Module):
   def forward(self, x, **kwargs):
     if self.solver == 'Forward Euler':
       for i in range(self.N):
-        x = x + self.φ[i](x, **kwargs)['x']
+        x = x + self.dt * self.φ[i](x, **kwargs)['x']
 
     else: raise Exception()
 
