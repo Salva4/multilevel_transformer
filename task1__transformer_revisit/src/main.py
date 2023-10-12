@@ -10,76 +10,38 @@ import tqdm
 
 import input_pipeline
 import preprocessing
-from models import *    # Linear, Transformer
-from continuous_block import *  # ContinuousTransformer
-from training import train_epoch#train_MGOPT
+from model.model import Model
+from continuous_model.continuous_model import ContinuousModel
+from training import train_epoch
+
+DATA_PATH_TRAIN = '../data/en_gum-ud-train.conllu.txt'
+DATA_PATH_DEV = '../data/en_gum-ud-dev.conllu.txt'
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--model', type=str, required=True)
-parser.add_argument('--lr', type=float, required=True)#default=1e-2)
-parser.add_argument('--optim', type=str, required=True)#default=1e-2)
-parser.add_argument('--init', type=str, required=True)#default='xavier')
-parser.add_argument('--pe', type=str, required=True)#default='torch')
-parser.add_argument('--N', 
-  type=int,#str, 
-  required=True,
-  help='''
-- Previous implementation (ML for weights initialization): 
-  string of ints joint by '-'; example: 3-5-9. 
-  *comment1: N was the number of basis functions (i.e. points to interpolate) --> (power of 2) + 1
-  *comment2: num_epochs had to correspond. example: '10-20-40'.
-- Previous implementation (MG/OPT):
-  integer, must be multiple of a 2^(#lvls)
-- Current implementation (conventional, comparison with torchbraid): any integer
-''',
-)#default=4)
-parser.add_argument('--T', type=float, required=True)#default=1.)
-parser.add_argument('--num_epochs', 
-  type=int,#str, 
-  required=True,
-  help='''
-- Previous implementation (ML for weights initialization): <-- refer to --N
-- Current implementation (MG/OPT): 
-  integer
-'''
-  )#default=240)
-# parser.add_argument('--interpol', type=str, required=True)#default='constant') <-- always 'linear' now (MGOPT): I, R
-parser.add_argument('--batch_size', type=int, required=True)#default=64)
-# parser.add_argument('--lr_factor', type=float, required=True)#default=1.)     <-- currently unused now (MGOPT). Same lr for all levels
-# parser.add_argument('--n_monitoring', type=int, required=True)#default=10)
-# parser.add_argument('--n_lvls', type=int, required=True)#default=2)
-# parser.add_argument('--n_V_cycles', type=int, required=True)#default=1)
-# parser.add_argument('--mus_nus', type=str, required=True,
-#                     help="mu0_mu1-nu1_mu2-nu2_... where lvl0 is the coarsest")
-# parser.add_argument('--lr_MGOPT', type=float, required=True,
-#                     help="learning rate for interpolating during MG/OPT. If it is -1., it means 'avoid MGOPT'")
-parser.add_argument('--output_fn', type=str, required=True,
-          help="Saving model")
-parser.add_argument('--models_dir', type=str, required=True,
-          help="Saving model")
+parser.add_argument('--batch_size', type=int, default=8)#64
+parser.add_argument('--continuous', action='store_true')
+parser.add_argument('--lr', type=float, default=1e-2)
+parser.add_argument('--max_len', type=int, default=2048)
+parser.add_argument('--model_name', type=str, default='transformer') # Linear, Transformer
+parser.add_argument('--models_dir', type=str, default=None)
+parser.add_argument('--momentum', type=float, default=0.)
+parser.add_argument('--N', type=int, default=4)
+parser.add_argument('--num_epochs', type=int, default=1000000000)
+parser.add_argument('--optimizer', type=str, default='Adam')
+parser.add_argument('--output_fn', type=str, default=None)
+parser.add_argument('--seed', type=int, default=0)
+parser.add_argument('--solver', type=str, default='Forward Euler')
+parser.add_argument('--T', type=float, default=None)
 args = parser.parse_args()
+# parser.add_argument('--init', type=str, required=True)#default='xavier')
+# parser.add_argument('--pe', type=str, required=True)#default='torch')
+# parser.add_argument('--interpol', type=str, required=True)#default='constant') <-- always 'linear' now (MGOPT): I, R
 
-data_path_train = '../data/en_gum-ud-train.conllu.txt'
-data_path_dev = '../data/en_gum-ud-dev.conllu.txt'
-
-model_name = args.model.capitalize()
-if model_name in locals() \
-  and str(locals()[model_name]) in [
-    f"<class 'models.{model_name}'>",
-    f"<class 'continuous_block.{model_name}'>"
-  ]:
-  exec(f'Model = {model_name}')
-else:
-  raise Exception('model name unknown')
-
-batch_size = args.batch_size
-max_len = 2048
-
-def assert_arguments():
-  assert args.model.lower() in ['linear', 'transformer', 'continuoustransformer']
-  assert args.init.lower() in ['normal', 'xavier', 'none']
-  assert args.pe.lower() in ['torch', 'alternative']
-  assert args.optim in ['Adam', 'SGD']
+# def assert_arguments():
+  # assert args.model.lower() in ['linear', 'transformer', 'continuoustransformer']
+  # assert args.init.lower() in ['normal', 'xavier', 'none']
+  # assert args.pe.lower() in ['torch', 'alternative']
+  # assert args.optimizer in ['Adam', 'SGD']
 
   ## ML weights initialization
   # assert args.interpol.lower() in ['constant', 'linear']
@@ -88,8 +50,8 @@ def assert_arguments():
   # assert args.N%(2**(args.n_lvls - 1)) == 0
 
 def obtain_ds_dl():
-  train = data_path_train
-  dev = data_path_dev
+  train = DATA_PATH_TRAIN
+  dev = DATA_PATH_DEV
 
   vocabs = input_pipeline.create_vocabs(train)
 
@@ -101,27 +63,28 @@ def obtain_ds_dl():
     vocabs=vocabs, 
     attributes_input=attributes_input, 
     attributes_target=attributes_target,
-    batch_size=batch_size, 
-    bucket_size=max_len,
+    batch_size=args.batch_size, 
+    bucket_size=args.max_len,
   )
   eval_ds, eval_dl = preprocessing.obtain_dataset(
     filename=dev, 
     vocabs=vocabs, 
     attributes_input=attributes_input, 
     attributes_target=attributes_target,
-    batch_size=batch_size,#187, 
-    bucket_size=max_len,
+    batch_size=args.batch_size,#187, 
+    bucket_size=args.max_len,
   )
 
   return train_ds, eval_ds, train_dl, eval_dl
 
 def main():
-  assert_arguments()
+  # assert_arguments()
+  if args.T is None and args.continuous: args.T = args.N
 
   ## Time monitoring
   t0 = time.time()
 
-  print('INFO: 20221127_01_MGOPT: MG/OPT 1st ord. consistency - 2nd approach.')
+  # print('INFO: 20221127_01_MGOPT: MG/OPT 1st ord. consistency - 2nd approach.')
 
   criterion = nn.CrossEntropyLoss(ignore_index=0)
   device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -183,33 +146,45 @@ def main():
   #   ).to(device)
   #   models.append(model)
 
-  #   optimizer = (torch.optim.Adam if args.optim == 'Adam' else torch.optim.SGD)(model.parameters(), lr=args.lr)
+  #   optimizer = (torch.optim.Adam if args.optimizer == 'Adam' else torch.optim.SGD)(model.parameters(), lr=args.lr)
   #   optimizers.append(optimizer)
   ########################################
 
   ################################# Conventional training
   torch.manual_seed(0)
 
+  model_architecture_path = '.'.join(
+    ['model', 'architectures', args.model_name, 'architecture']
+  )
   model = Model(
-    init_method = args.init.capitalize(),
-    encoding = args.pe.capitalize(), 
-    T = args.T, 
-    N = args.N,
+    model_architecture_path=model_architecture_path,
+    N=args.N,
   ).to(device)
 
-  optimizer = (torch.optim.Adam if args.optim == 'Adam' else torch.optim.SGD)(model.parameters(), lr=args.lr)
+  if args.continuous:
+    model = ContinuousModel(
+      model=model,
+      T=args.T,
+      solver=args.solver,
+    )
 
-  print(model)
-  print(args.init.capitalize(), args.pe.capitalize(), args.T, args.N)
-  print(optimizer)
+  # optimizer = (torch.optim.Adam if args.optimizer == 'Adam' else torch.optim.SGD)(model.parameters(), lr=args.lr)
+  if args.optimizer == 'Adam':
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+  elif args.optimizer == 'SGD':
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, 
+                                momentum=args.momentum)#.9)
+  else: raise Exception()
+
+  print(f'model: {model}')
+  print(f'optimizer: {optimizer}')
+  # print(args.init.capitalize(), args.pe.capitalize(), args.T, args.N)
   ########################################
 
   print()
   torch.manual_seed(1)
   print(f'3. Training models')
   for epoch in tqdm.tqdm(range(args.num_epochs)):
-    # model = train_MGOPT(train_dl, eval_dl, models, optimizers, criterion, device, #args.num_epochs, 
-    #   args.n_monitoring, args.n_V_cycles, args.mus_nus, args.lr_MGOPT)
     model, va_acc = train_epoch(train_dl, eval_dl, model, optimizer, 
                                 criterion, device)
     print(f'Epoch {str(epoch).zfill(2)}\tVa acc:\t{va_acc : .4f}')

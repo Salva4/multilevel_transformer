@@ -274,7 +274,7 @@ def train_epoch(
 		inputs, targets = inputs.to(device), targets.to(device)
 		# inputs = inputs.to(device) # only inputs, no targets 1/2
 
-		outputs = model(inputs)#.cpu() 2/2
+		outputs = model(inputs)['x']#.cpu() 2/2
 		loss = criterion(
 			outputs.reshape(-1, outputs.shape[-1]), 
 			targets.reshape(-1)
@@ -298,7 +298,7 @@ def train_epoch(
 			# inputs, targets = inputs.long(), targets.long()
 			inputs, targets = inputs.to(device), targets.to(device)
 
-			outputs = model(inputs)
+			outputs = model(inputs)['x']
 			predictions = outputs.argmax(axis=-1)
 			
 			corr += ((predictions == targets)*(targets != PAD_ID)).sum().item()
