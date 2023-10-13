@@ -106,50 +106,50 @@ color = lambda z, col: print(z)
 # 	return model
 ########################################
 
-def monitor_accs(eval_dl, model, device, inputs_tr, targets_tr, batch_ctr):
-	model.eval()
+# def monitor_accs(eval_dl, model, device, inputs_tr, targets_tr, batch_ctr):
+# 	model.eval()
 
-	with torch.no_grad():
-		## Training accuracy
-		outputs_tr = model(inputs_tr)
-		predictions_tr = outputs_tr.argmax(axis=-1)
-		tr_accuracy = (
-			(predictions_tr == targets_tr)*(targets_tr != PAD_ID)
-		).sum() / (targets_tr != PAD_ID).sum()
+# 	with torch.no_grad():
+# 		## Training accuracy
+# 		outputs_tr = model(inputs_tr)
+# 		predictions_tr = outputs_tr.argmax(axis=-1)
+# 		tr_accuracy = (
+# 			(predictions_tr == targets_tr)*(targets_tr != PAD_ID)
+# 		).sum() / (targets_tr != PAD_ID).sum()
 
-		## Validation accuracy
-		eval_iter = iter(eval_dl)
-		batch = next(eval_iter, None)
-		va_correct, va_total = 0, 0
-		while batch != None:
-			inputs_va, targets_va = batch 	# both inputs & targets --> long
-			# inputs_va, targets_va = inputs_va.long(), targets_va.long()
-			inputs_va, targets_va = inputs_va.to(device), targets_va.to(device)
+# 		## Validation accuracy
+# 		eval_iter = iter(eval_dl)
+# 		batch = next(eval_iter, None)
+# 		va_correct, va_total = 0, 0
+# 		while batch != None:
+# 			inputs_va, targets_va = batch 	# both inputs & targets --> long
+# 			# inputs_va, targets_va = inputs_va.long(), targets_va.long()
+# 			inputs_va, targets_va = inputs_va.to(device), targets_va.to(device)
 
-			outputs_va = model(inputs_va)
-			predictions_va = outputs_va.argmax(axis=-1)
-			va_correct += ((predictions_va == targets_va)*(targets_va != PAD_ID)).sum().item()
-			va_total += (targets_va != PAD_ID).sum().item()
+# 			outputs_va = model(inputs_va)
+# 			predictions_va = outputs_va.argmax(axis=-1)
+# 			va_correct += ((predictions_va == targets_va)*(targets_va != PAD_ID)).sum().item()
+# 			va_total += (targets_va != PAD_ID).sum().item()
 
-			batch = next(eval_iter, None)
+# 			batch = next(eval_iter, None)
 
-		## Validation data: 5x187 + 182 <-- irrelevant now, acc well computed
-		va_accuracy = va_correct/va_total
+# 		## Validation data: 5x187 + 182 <-- irrelevant now, acc well computed
+# 		va_accuracy = va_correct/va_total
 
-		color(f'\t(Batch-)epoch {str(batch_ctr).zfill(2)}\tTr/Va:\t{tr_accuracy*100 : .2f}%\t{va_accuracy*100 : .2f}%',
-			'yellow')
+# 		color(f'\t(Batch-)epoch {str(batch_ctr).zfill(2)}\tTr/Va:\t{tr_accuracy*100 : .2f}%\t{va_accuracy*100 : .2f}%',
+# 			'yellow')
 	
-	## Early stop
-	# if va_accuracy > maxVaAcc:
-	# 	patience_ctr = 0
-	# 	maxVaAcc = va_accuracy
+# 	## Early stop
+# 	# if va_accuracy > maxVaAcc:
+# 	# 	patience_ctr = 0
+# 	# 	maxVaAcc = va_accuracy
 
-	# else:
-	# 	patience_ctr += 1
-	# 	if patience_ctr > patience:
-	# 		break
+# 	# else:
+# 	# 	patience_ctr += 1
+# 	# 	if patience_ctr > patience:
+# 	# 		break
 
-	model.train()
+# 	model.train()
 
 
 ################################# MG/OPT
@@ -274,7 +274,8 @@ def train_epoch(
 		inputs, targets = inputs.to(device), targets.to(device)
 		# inputs = inputs.to(device) # only inputs, no targets 1/2
 
-		outputs = model(inputs)['x']#.cpu() 2/2
+		model_inputs = {'x': inputs}
+		outputs = model(**model_inputs)['x']#.cpu() 2/2
 		loss = criterion(
 			outputs.reshape(-1, outputs.shape[-1]), 
 			targets.reshape(-1)
@@ -298,7 +299,8 @@ def train_epoch(
 			# inputs, targets = inputs.long(), targets.long()
 			inputs, targets = inputs.to(device), targets.to(device)
 
-			outputs = model(inputs)['x']
+			model_inputs = {'x': inputs}
+			outputs = model(**model_inputs)['x']
 			predictions = outputs.argmax(axis=-1)
 			
 			corr += ((predictions == targets)*(targets != PAD_ID)).sum().item()

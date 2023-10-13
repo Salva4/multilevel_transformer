@@ -19,7 +19,7 @@ class ContinuousModel(nn.Module):
     self.postcontinuous_block = self.model.postcontinuous_block
 
     self.continuous_block = ContinuousBlock(
-      φ=self.model.continuous_block.residual_layers,
+      ψ=self.model.continuous_block.residual_layers,
       N=self.model.continuous_block.N,
       T=T,
       solver=solver,
@@ -31,8 +31,8 @@ class ContinuousModel(nn.Module):
 
     # self.num_params = self.weights_flat_().shape[0]
 
-  def forward(self, x):
-    state = {'x': x}
+  def forward(self, **state):
+    # state = {'x': x}
     state.update(self.precontinuous_block (**state))
     state.update(self.continuous_block    (**state))
     state.update(self.postcontinuous_block(**state))

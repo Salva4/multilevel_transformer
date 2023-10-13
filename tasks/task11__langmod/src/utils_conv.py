@@ -21,8 +21,7 @@ def estimate_loss(model, eval_iters, train_data, val_data, block_size, batch_siz
         for k in range(eval_iters):
             X, Y = get_batch(split, train_data, val_data, block_size, batch_size, device)
             model_inputs = {'x': X, 'targets': Y}
-            outputs = model(**model_inputs)#X, Y)
-            logits, loss = outputs['x'], outputs['loss']
+            logits, loss = model(**model_inputs)#X, Y)
             losses[k] = loss.item()
         out[split] = losses.mean()
     model.train()

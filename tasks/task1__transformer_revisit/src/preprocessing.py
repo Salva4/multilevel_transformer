@@ -6,7 +6,7 @@ from input_pipeline import sentences_from_conll_data, PAD_ID
 
 class Dataset(torch.utils.data.Dataset):
 	def __init__(self, **params):
-		self.data = self.create_dataset(params)
+		self.data = self.create_dataset(**params)
 
 	def __len__(self):
 		return len(self.data)
@@ -14,14 +14,8 @@ class Dataset(torch.utils.data.Dataset):
 	def __getitem__(self, idx):
 		return self.data[idx]
 
-	def create_dataset(self, params):
-		filename = params['filename']
-		vocabs = params['vocabs']
-		attributes_input = params['attributes_input']
-		attributes_target = params['attributes_target']
-		batch_size = params['batch_size']
-		bucket_size = params['bucket_size']
-
+	def create_dataset(self, filename, vocabs, attributes_input, 
+										 attributes_target, batch_size, bucket_size):
 		input_generator = sentences_from_conll_data(
 			filename, vocabs, attributes_input, max_sentence_length=bucket_size)
 		target_generator = sentences_from_conll_data(

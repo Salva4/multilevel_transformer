@@ -3,13 +3,29 @@ import torch.nn as nn
 import copy
 
 class ContinuousBlock(nn.Module):
-  def __init__(self, φ, N, T, solver='Forward Euler'):#, interpol):
+  def __init__(self, ψ, N, T, solver='Forward Euler'):#, interpol):
     super().__init__()
-    self.φ = φ  # basis functions
     self.N = N
     self.T = T
     self.solver = solver
     # self.interpol = interpol
+
+    self.ψ = nn.ModuleList([])
+    if self.solver == 'Forward Euler':
+      for i in range(self.N):
+        self.ψ.append(copy.deepcopy(ψ[i]))  # basis functions
+
+    elif self.solver == 'Heun': 
+      for i in range(self.N):
+        self.ψ.append(copy.deepcopy(ψ[i]))
+
+      self.ψ.append(copy.deepcopy(ψ[-1]))
+
+    elif self.solver == 'RK4':
+      for i in range(self.N):
+        for _ in range(2): self.ψ.append(copy.deepcopy(ψ[i]))
+
+      self.ψ.append(copy.deepcopy(ψ[-1]))
 
     self.dt = T/N
 
@@ -22,9 +38,27 @@ class ContinuousBlock(nn.Module):
     # ]
 
   def forward(self, x, **kwargs):
-    if self.solver == 'Forward Euler':
-      for i in range(self.N):
-        x = x + self.dt * self.φ[i](x, **kwargs)['x']
+    dt = self.dt
+    N = self.N
+    solver = self.solver
+    ψ = [lambda x: self.ψ[i](x, **kwargs)['x'] for i in range(len(self.ψ))]
+
+    if solver == 'Forward Euler':
+      for i in range(N):
+        x = x + dt * ψ[i](x)
+
+    elif solver == 'Heun':
+      for i in range(N):
+        ψ_i_x = ψ[i](x)
+        x = x + dt * (ψ_i_x + ψ[i+1](x + dt * ψ_i_x))/2
+
+    elif solver == 'RK4':
+      for i in range(N):
+        k1 = ψ[2*i](x)
+        k2 = ψ[2*i+1](x + dt/2 * k1)
+        k3 = ψ[2*i+1](x + dt/2 * k2)
+        k4 = ψ[2*i+2](x + dt * k3)
+        x = x + dt * (k1 + 2*k2 + 2*k3 + k4)/6
 
     else: raise Exception()
 

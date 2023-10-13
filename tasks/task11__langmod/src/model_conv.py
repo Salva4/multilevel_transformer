@@ -80,11 +80,11 @@ class DTransformer(nn.Module):
     super().__init__()
     self.emb = nn.Embedding(vocab_size, d_model)
     self.posenc = nn.Embedding(block_size, d_model)
-    # self.blocks = nn.Sequential(*[Block(d_model, n_head, block_size, 
-    #                dropout) for _ in range(num_layers)])
-    block = Block(d_model, n_head, block_size, dropout)
-    self.blocks = nn.Sequential(*[copy.deepcopy(block) \
-                          for _ in range(num_layers)])
+    self.blocks = nn.Sequential(*[Block(d_model, n_head, block_size, 
+                   dropout) for _ in range(num_layers)])
+    # block = Block(d_model, n_head, block_size, dropout)
+    # self.blocks = nn.Sequential(*[copy.deepcopy(block) \
+    #                       for _ in range(num_layers)])
     self.ln = nn.LayerNorm(d_model) # final layer norm
     self.classifier = nn.Linear(d_model, vocab_size)
 

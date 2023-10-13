@@ -4,11 +4,12 @@ import torch
 import torch.nn as nn
 
 class ContinuousBlock(nn.Module):
-  def __init__(self, ResidualLayer, N):
+  def __init__(self, ResidualLayer, N, **kwargs):
     super().__init__()
     self.N = N
     self.layers = nn.ModuleList(
-      [ContinuousLayer(ResidualLayer=ResidualLayer, seed=i) \
+      [ContinuousLayer(ResidualLayer=ResidualLayer, seed=0,#i, 
+                                                  **kwargs) \
        for i in range(self.N)]
     )
     self.residual_layers = nn.ModuleList(
@@ -20,9 +21,11 @@ class ContinuousBlock(nn.Module):
     return state
 
 class ContinuousLayer(nn.Module):
-  def __init__(self, ResidualLayer, seed=None):
+  def __init__(self, ResidualLayer, seed=None, **kwargs):
     super().__init__()
-    self.residual_layer = ResidualLayer(seed=seed)
+    if seed is not None: torch.manual_seed(seed)
+
+    self.residual_layer = ResidualLayer(**kwargs)
 
   def forward(self, x, **kwargs):
     return {'x': x + self.residual_layer(x, **kwargs)['x']}
@@ -30,15 +33,30 @@ class ContinuousLayer(nn.Module):
 ##
 # Transformer encoder layer using their code's scheme & <i>MultiheadAttention</i>
 class Model(nn.Module):
-  def __init__(self, model_architecture_path, N):
+  def __init__(self, model_architecture_path, N, 
+               seed_precontinuous_block=None, seed_postcontinuous_block=None, 
+               **kwargs):
     super().__init__()
     architecture_module = importlib.import_module(model_architecture_path)
 
-    self.precontinuous_block  = architecture_module.PreContinuousBlock()
-    self.postcontinuous_block = architecture_module.PostContinuousBlock()
-    self.continuous_block     = ContinuousBlock(
+    # if seed_precontinuous_block is not None: 
+    #   torch.manual_seed(seed_precontinuous_block)
+    torch.manual_seed(0)
+    self.precontinuous_block  = architecture_module.PreContinuousBlock(
+      **kwargs
+    )
+
+    # if seed_postcontinuous_block is not None:
+    #   torch.manual_seed(seed_postcontinuous_block)
+    torch.manual_seed(0)
+    self.postcontinuous_block = architecture_module.PostContinuousBlock(
+      **kwargs
+    )
+
+    self.continuous_block = ContinuousBlock(
       ResidualLayer=architecture_module.ContinuousResidualLayer,
       N=N,
+      **kwargs,
     )
 
     ## Continuous block
@@ -46,8 +64,8 @@ class Model(nn.Module):
     #   print('initializing parameters')
     #   self.init_params()
 
-  def forward(self, x):
-    state = {'x': x}
+  def forward(self, **state):
+    # state = {'x': x}
     state.update(self.precontinuous_block (**state))
     state.update(self.continuous_block    (**state))
     state.update(self.postcontinuous_block(**state))

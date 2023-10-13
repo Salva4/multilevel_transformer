@@ -1,13 +1,10 @@
-import torch
 import torch.nn as nn
 
 from ._utils.positional_encoding import TorchPositionalEncoding
 
 class ContinuousResidualLayer(nn.Module):
-  def __init__(self, seed=None):
-    super().__init__()
-    if seed is not None: torch.manual_seed(seed)
-    torch.manual_seed(0)
+  def __init__(self, **kwargs):
+    super().__init__(**kwargs)    
     self.fc1 = nn.Linear(128, 128)
     self.fc2 = nn.Linear(128, 128)
     self.att = nn.MultiheadAttention(
@@ -39,10 +36,8 @@ class ContinuousResidualLayer(nn.Module):
     return {'x': x}
 
 class PostContinuousBlock(nn.Module):
-  def __init__(self, seed=None):
-    super().__init__()
-    if seed is not None: torch.manual_seed(seed)
-    torch.manual_seed(0)
+  def __init__(self, **kwargs):
+    super().__init__(**kwargs)
     self.fc3 = nn.Linear(128, 49)
     self.ln3 = nn.LayerNorm(128)
 
@@ -53,10 +48,8 @@ class PostContinuousBlock(nn.Module):
     return {'x': x}
 
 class PreContinuousBlock(nn.Module):
-  def __init__(self, seed=None):
-    super().__init__()
-    if seed is not None: torch.manual_seed(seed)
-    torch.manual_seed(0)
+  def __init__(self, **kwargs):
+    super().__init__(**kwargs)
     self.emb = nn.Embedding(15514, 128)
     # self.dropout = nn.Dropout(p=.1)
     self.posenc = TorchPositionalEncoding(128)

@@ -19,10 +19,13 @@ from training import train_epoch
 
 DATA_PATH_TRAIN = '../data/en_gum-ud-train.conllu.txt'
 DATA_PATH_DEV = '../data/en_gum-ud-dev.conllu.txt'
+DATA_PATH_TRAIN_DEBUG = '../data/en_gum-ud-train.conllu_debug.txt'
+DATA_PATH_DEV_DEBUG = '../data/en_gum-ud-dev.conllu_debug.txt'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size', type=int, default=8)#64
 parser.add_argument('--continuous', action='store_true')
+parser.add_argument('--debug', action='store_true')
 parser.add_argument('--lr', type=float, default=1e-2)
 parser.add_argument('--max_len', type=int, default=2048)
 parser.add_argument('--model_name', type=str, default='transformer') # Linear, Transformer
@@ -36,6 +39,7 @@ parser.add_argument('--seed', type=int, default=0)
 parser.add_argument('--solver', type=str, default='Forward Euler')
 parser.add_argument('--T', type=float, default=None)
 args = parser.parse_args()
+
 # parser.add_argument('--init', type=str, required=True)#default='xavier')
 # parser.add_argument('--pe', type=str, required=True)#default='torch')
 # parser.add_argument('--interpol', type=str, required=True)#default='constant') <-- always 'linear' now (MGOPT): I, R
@@ -53,8 +57,9 @@ args = parser.parse_args()
   # assert args.N%(2**(args.n_lvls - 1)) == 0
 
 def obtain_ds_dl():
-  train = DATA_PATH_TRAIN
-  dev = DATA_PATH_DEV
+  train = DATA_PATH_TRAIN if not args.debug else DATA_PATH_TRAIN_DEBUG
+  dev = DATA_PATH_DEV if not args.debug else DATA_PATH_DEV_DEBUG
+  print('train', train, 'dev', dev)
 
   vocabs = input_pipeline.create_vocabs(train)
 
@@ -81,6 +86,11 @@ def obtain_ds_dl():
   return train_ds, eval_ds, train_dl, eval_dl
 
 def main():
+  if args.debug:
+    args.batch_size = 3
+    args.max_len = 10
+    args.N = 2
+
   # assert_arguments()
   if args.T is None and args.continuous: args.T = args.N
 
@@ -95,8 +105,7 @@ def main():
 
   ## DS
   print('1. Obtaining datasets and dataloaders')
-  train_ds, eval_ds, train_dl, eval_dl \
-    = tqdm.tqdm(obtain_ds_dl())
+  train_ds, eval_ds, train_dl, eval_dl = tqdm.tqdm(obtain_ds_dl())
   print()
 
   ############## ML weights initialization  
@@ -157,26 +166,22 @@ def main():
   torch.manual_seed(0)
 
   model_architecture_path = '.'.join(
-    ['model', 'architectures', args.model_name, 'architecture']
+    ['model_architectures', args.model_name, 'architecture']
   )
   model = Model(
-    model_architecture_path=model_architecture_path,
-    N=args.N,
+    model_architecture_path=model_architecture_path, N=args.N,
   ).to(device)
 
   if args.continuous:
-    model = ContinuousModel(
-      model=model,
-      T=args.T,
-      solver=args.solver,
-    )
+    model = ContinuousModel(model=model, T=args.T, solver=args.solver)
 
   # optimizer = (torch.optim.Adam if args.optimizer == 'Adam' else torch.optim.SGD)(model.parameters(), lr=args.lr)
   if args.optimizer == 'Adam':
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
   elif args.optimizer == 'SGD':
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, 
-                                momentum=args.momentum)#.9)
+    optimizer = torch.optim.SGD(
+      model.parameters(), lr=args.lr, momentum=args.momentum,
+    )#.9)
   else: raise Exception()
 
   print(f'model: {model}')
@@ -188,8 +193,9 @@ def main():
   torch.manual_seed(1)
   print(f'3. Training models')
   for epoch in tqdm.tqdm(range(args.num_epochs)):
-    model, va_acc = train_epoch(train_dl, eval_dl, model, optimizer, 
-                                criterion, device)
+    model, va_acc = train_epoch(
+      train_dl, eval_dl, model, optimizer, criterion, device,
+    )
     print(f'Epoch {str(epoch).zfill(2)}\tVa acc:\t{va_acc : .4f}')
 
   ########################################
