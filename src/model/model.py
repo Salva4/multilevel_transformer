@@ -12,9 +12,9 @@ class ContinuousBlock(nn.Module):
                                                   **kwargs) \
        for i in range(self.N)]
     )
-    self.residual_layers = nn.ModuleList(
-      [layer.residual_layer for layer in self.layers]
-    )
+    # self.residual_layers = nn.ModuleList(
+    #   [layer.residual_layer for layer in self.layers]
+    # )
 
   def forward(self, **state):
     for i, layer in enumerate(self.layers): state.update(layer(**state))

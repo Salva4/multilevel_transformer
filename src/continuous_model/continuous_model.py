@@ -7,7 +7,7 @@ from .continuous_block import ContinuousBlock
 ##
 # Continuous transformer encoder layer using their code's scheme & <i>MultiheadAttention</i>
 class ContinuousModel(nn.Module):
-  def __init__(self, model, T, solver):
+  def __init__(self, model, T, solver, coarsening_factor, num_levels):
     print('Continuous approach')
     super().__init__()
     self.model = model
@@ -19,10 +19,15 @@ class ContinuousModel(nn.Module):
     self.postcontinuous_block = self.model.postcontinuous_block
 
     self.continuous_block = ContinuousBlock(
-      ψ=self.model.continuous_block.residual_layers,
-      N=self.model.continuous_block.N,
+      # ψ=self.model.continuous_block.residual_layers,
+      ψ=nn.ModuleList(
+        [layer.residual_layer for layer in model.continuous_block.layers]
+      ),
+      Nf=self.model.continuous_block.N,
       T=T,
       solver=solver,
+      coarsening_factor=coarsening_factor,
+      num_levels=num_levels,
     )
       # interpol=self.interpol,
 

@@ -3,31 +3,37 @@ import torch.nn as nn
 import copy
 
 class ContinuousBlock(nn.Module):
-  def __init__(self, ψ, N, T, solver='Forward Euler'):#, interpol):
+  def __init__(self, ψ, Nf, T, solver, coarsening_factor, num_levels):#, interpol):
     super().__init__()
-    self.N = N
+    self.Nf = Nf
     self.T = T
     self.solver = solver
+    self.coarsening_factor = coarsening_factor
+    self.num_levels = num_levels
     # self.interpol = interpol
+
+    self.N = []
+    for level in range(num_levels): 
+      self.N.append(Nf // coarsening_factor ** level)
 
     self.ψ = nn.ModuleList([])
     if self.solver == 'Forward Euler':
-      for i in range(self.N):
+      for i in range(self.Nf):
         self.ψ.append(copy.deepcopy(ψ[i]))  # basis functions
 
     elif self.solver == 'Heun': 
-      for i in range(self.N):
+      for i in range(self.Nf):
         self.ψ.append(copy.deepcopy(ψ[i]))
 
       self.ψ.append(copy.deepcopy(ψ[-1]))
 
     elif self.solver == 'RK4':
-      for i in range(self.N):
+      for i in range(self.Nf):
         for _ in range(2): self.ψ.append(copy.deepcopy(ψ[i]))
 
       self.ψ.append(copy.deepcopy(ψ[-1]))
 
-    self.dt = T/N
+    # self.dt = T/N
 
     # self.weights = [
     #   'fc1.weight', 'fc1.bias', 
@@ -37,11 +43,14 @@ class ContinuousBlock(nn.Module):
     #   'ln2.weight', 'ln2.bias'
     # ]
 
-  def forward(self, x, **kwargs):
-    dt = self.dt
-    N = self.N
+  def forward(self, x, level, **kwargs):
+    N = self.N[level]
+    T = self.T
+    coarsening_factor = self.coarsening_factor
+    dt = T / N
     solver = self.solver
-    ψ = [lambda x: self.ψ[i](x, **kwargs)['x'] for i in range(len(self.ψ))]
+    ψ = [lambda x: self.ψ[i](x, **kwargs)['x'] \
+         for i in range(len(self.ψ)) if i % coarsening_factor**level == 0]
 
     if solver == 'Forward Euler':
       for i in range(N):

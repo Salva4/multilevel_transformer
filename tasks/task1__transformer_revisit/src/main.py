@@ -24,36 +24,50 @@ DATA_PATH_DEV_DEBUG = '../data/en_gum-ud-dev.conllu_debug.txt'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size', type=int, default=8)#64
+parser.add_argument('--coarsening_factor', type=int, default=2)
 parser.add_argument('--continuous', action='store_true')
 parser.add_argument('--debug', action='store_true')
-parser.add_argument('--lr', type=float, default=1e-2)
+parser.add_argument('--interpol', type=str, default='constant')  # <-- always 'linear' in MG/OPT: I, R
+parser.add_argument('--levels_scheme', type=str, default='0', help='2_1_2_1_0_...')
+parser.add_argument('--lr', type=str, default='1e-2', help='lrlvl0_lrlvl1_...')
 parser.add_argument('--max_len', type=int, default=2048)
 parser.add_argument('--model_name', type=str, default='transformer') # Linear, Transformer
 parser.add_argument('--models_dir', type=str, default=None)
-parser.add_argument('--momentum', type=float, default=0.)
+parser.add_argument('--momentum', type=str, default='.9', help='momentumlvl0_momentumlvl1_...')
 parser.add_argument('--N', type=int, default=4)
-parser.add_argument('--num_epochs', type=int, default=1000000000)
-parser.add_argument('--optimizer', type=str, default='Adam')
+parser.add_argument('--num_epochs', type=str, default='1000000000', help='10_10_10_10_10_...')
+parser.add_argument('--optimizer', type=str, default='SGD')
 parser.add_argument('--output_fn', type=str, default=None)
 parser.add_argument('--seed', type=int, default=0)
-parser.add_argument('--solver', type=str, default='Forward Euler')
+parser.add_argument('--solver', type=str, default='Forward_Euler')
 parser.add_argument('--T', type=float, default=None)
 args = parser.parse_args()
-
 # parser.add_argument('--init', type=str, required=True)#default='xavier')
 # parser.add_argument('--pe', type=str, required=True)#default='torch')
-# parser.add_argument('--interpol', type=str, required=True)#default='constant') <-- always 'linear' now (MGOPT): I, R
 
-# def assert_arguments():
-  # assert args.model.lower() in ['linear', 'transformer', 'continuoustransformer']
-  # assert args.init.lower() in ['normal', 'xavier', 'none']
-  # assert args.pe.lower() in ['torch', 'alternative']
-  # assert args.optimizer in ['Adam', 'SGD']
+## Experiment for PC-cpu
+# args.debug = True
+# args.levels_scheme = '1_0_1'
+# args.lr = '1e-2_1e-3'
+# args.momentum = '0._.9'
+# args.num_epochs = '2_2_2'
+# args.optimizer = 'SGD'
 
-  ## ML weights initialization
-  # assert args.interpol.lower() in ['constant', 'linear']
+def assert_arguments(args):
+  # ML weights initialization
+  num_levels = len(args.lr.split('_'))
+  assert num_levels == len(args.momentum.split('_'))
 
-  ## MGOPT
+  if not args.continuous:
+    assert num_levels == 1 and len(args.levels_scheme.split('_')) == 1 \
+                           and len(args.num_epochs.split('_')) == 1
+  else:
+    if num_levels > 1:
+      assert args.N // args.coarsening_factor ** (num_levels - 1) >  0 and \
+             args.N %  args.coarsening_factor ** (num_levels - 1) == 0
+    assert len(args.levels_scheme.split('_')) == len(args.num_epochs.split('_'))
+
+  # MGOPT
   # assert args.N%(2**(args.n_lvls - 1)) == 0
 
 def obtain_ds_dl():
@@ -86,13 +100,21 @@ def obtain_ds_dl():
   return train_ds, eval_ds, train_dl, eval_dl
 
 def main():
+  ## args managing ####################
   if args.debug:
     args.batch_size = 3
+    args.continuous = True
     args.max_len = 10
     args.N = 2
 
-  # assert_arguments()
+  assert_arguments(args)
+
   if args.T is None and args.continuous: args.T = args.N
+  args.solver = args.solver.replace('_', ' ')  # Forward_Euler --> Forward Euler
+
+  print('args', args)
+  #####################################
+
 
   ## Time monitoring
   t0 = time.time()
@@ -163,7 +185,7 @@ def main():
   ########################################
 
   ################################# Conventional training
-  torch.manual_seed(0)
+  torch.manual_seed(args.seed)
 
   model_architecture_path = '.'.join(
     ['model_architectures', args.model_name, 'architecture']
@@ -173,30 +195,56 @@ def main():
   ).to(device)
 
   if args.continuous:
-    model = ContinuousModel(model=model, T=args.T, solver=args.solver)
+    num_levels = len(args.lr.split('_'))
+    model = ContinuousModel(
+      model=model, T=args.T, solver=args.solver, 
+      coarsening_factor=args.coarsening_factor, num_levels=num_levels,
+    )
 
   # optimizer = (torch.optim.Adam if args.optimizer == 'Adam' else torch.optim.SGD)(model.parameters(), lr=args.lr)
   if args.optimizer == 'Adam':
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.)
   elif args.optimizer == 'SGD':
     optimizer = torch.optim.SGD(
-      model.parameters(), lr=args.lr, momentum=args.momentum,
+      model.parameters(), lr=0., momentum=0.,
     )#.9)
   else: raise Exception()
 
   print(f'model: {model}')
-  print(f'optimizer: {optimizer}')
+  # print(f'optimizer: {optimizer}')
   # print(args.init.capitalize(), args.pe.capitalize(), args.T, args.N)
   ########################################
 
   print()
-  torch.manual_seed(1)
   print(f'3. Training models')
-  for epoch in tqdm.tqdm(range(args.num_epochs)):
-    model, va_acc = train_epoch(
-      train_dl, eval_dl, model, optimizer, criterion, device,
-    )
-    print(f'Epoch {str(epoch).zfill(2)}\tVa acc:\t{va_acc : .4f}')
+  torch.manual_seed(args.seed)
+  num_epochs_list = [int(num_epochs) for num_epochs in args.num_epochs.split('_')]
+  levels_list = [int(level) for level in args.levels_scheme.split('_')]
+  lr_list = [float(lr) for lr in args.lr.split('_')]
+  momentum_list = [float(momentum) for momentum in args.momentum.split('_')]
+
+  print(f'Starting at level {levels_list[0]}')
+
+  for k, (num_epochs, level) in enumerate(zip(num_epochs_list, levels_list)):
+    lr = lr_list[level]
+    momentum = momentum_list[level]
+
+    for g in optimizer.param_groups: g['lr'] = lr
+
+    if args.optimizer == 'SGD':
+      for g in optimizer.param_groups: g['momentum'] = momentum
+
+    # print('optimizer', optimizer)
+
+    for epoch in tqdm.tqdm(range(num_epochs)):
+      model, va_acc = train_epoch(
+        train_dl, eval_dl, model, optimizer, criterion, device, level
+      )
+
+      print(f'Epoch {str(epoch).zfill(2)}\tVa acc:\t{va_acc : .4f}')
+
+    if k != len(num_epochs_list) - 1: 
+      print(f'Changing from level {levels_list[k]} to level {levels_list[k+1]}')
 
   ########################################
   

@@ -259,12 +259,7 @@ color = lambda z, col: print(z)
 
 ############### Conventional training
 def train_epoch(
-	train_dl,
-	eval_dl,
-	model, 
-	optimizer, 
-	criterion,
-	device,
+	train_dl, eval_dl, model, optimizer, criterion, device, level
 ):
 	## Training
 	model.train()
@@ -274,7 +269,7 @@ def train_epoch(
 		inputs, targets = inputs.to(device), targets.to(device)
 		# inputs = inputs.to(device) # only inputs, no targets 1/2
 
-		model_inputs = {'x': inputs}
+		model_inputs = {'x': inputs, 'level': level}
 		outputs = model(**model_inputs)['x']#.cpu() 2/2
 		loss = criterion(
 			outputs.reshape(-1, outputs.shape[-1]), 
@@ -299,7 +294,7 @@ def train_epoch(
 			# inputs, targets = inputs.long(), targets.long()
 			inputs, targets = inputs.to(device), targets.to(device)
 
-			model_inputs = {'x': inputs}
+			model_inputs = {'x': inputs, 'level': level}
 			outputs = model(**model_inputs)['x']
 			predictions = outputs.argmax(axis=-1)
 			
