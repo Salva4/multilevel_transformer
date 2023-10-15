@@ -49,24 +49,25 @@ class ContinuousBlock(nn.Module):
     coarsening_factor = self.coarsening_factor
     dt = T / N
     solver = self.solver
-    ψ = [lambda x: self.ψ[i](x, **kwargs)['x'] \
+    ψ = [#lambda x: self.ψ[i](x, **kwargs)['x'] \
+         self.ψ[i] \
          for i in range(len(self.ψ)) if i % coarsening_factor**level == 0]
 
     if solver == 'Forward Euler':
       for i in range(N):
-        x = x + dt * ψ[i](x)
+        x = x + dt * ψ[i](x, **kwargs)['x']#ψ[i](x)
 
     elif solver == 'Heun':
       for i in range(N):
-        ψ_i_x = ψ[i](x)
-        x = x + dt * (ψ_i_x + ψ[i+1](x + dt * ψ_i_x))/2
+        ψ_i_x = ψ[i](x, **kwargs)['x']#ψ[i](x)
+        x = x + dt * (ψ_i_x + ψ[i+1](x + dt * ψ_i_x, **kwargs)['x'])/2#ψ[i+1](x + dt * ψ_i_x))/2
 
     elif solver == 'RK4':
       for i in range(N):
-        k1 = ψ[2*i](x)
-        k2 = ψ[2*i+1](x + dt/2 * k1)
-        k3 = ψ[2*i+1](x + dt/2 * k2)
-        k4 = ψ[2*i+2](x + dt * k3)
+        k1 = ψ[2*i  ](x            , **kwargs)['x']
+        k2 = ψ[2*i+1](x + dt/2 * k1, **kwargs)['x']
+        k3 = ψ[2*i+1](x + dt/2 * k2, **kwargs)['x']
+        k4 = ψ[2*i+2](x + dt   * k3, **kwargs)['x']
         x = x + dt * (k1 + 2*k2 + 2*k3 + k4)/6
 
     else: raise Exception()
@@ -275,3 +276,20 @@ class ContinuousBlock(nn.Module):
   #   #     exec(
   #   #       f'self.Rs[n_old].{weight}.data -= old_model.continuous_block.Rs[n_old].{weight}.data'
   #   #     )
+
+# class Lambda(nn.Module):
+#   def __init__(self, function, *args, **kwargs):
+#     super().__init__()
+#     self.function = function
+#     self.
+
+
+
+
+
+
+
+
+
+
+

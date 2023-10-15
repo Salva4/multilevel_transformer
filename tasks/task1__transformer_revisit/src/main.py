@@ -50,7 +50,7 @@ args = parser.parse_args()
 # args.levels_scheme = '1_0_1'
 # args.lr = '1e-2_1e-3'
 # args.momentum = '0._.9'
-# args.num_epochs = '2_2_2'
+# args.num_epochs = '2'#'2_2_2'
 # args.optimizer = 'SGD'
 
 def assert_arguments(args):
@@ -102,15 +102,15 @@ def obtain_ds_dl():
 def main():
   ## args managing ####################
   if args.debug:
-    args.batch_size = 3
-    args.continuous = True
+    args.batch_size = 2
+    # args.continuous = True
     args.max_len = 10
     args.N = 2
 
   assert_arguments(args)
 
   if args.T is None and args.continuous: args.T = args.N
-  args.solver = args.solver.replace('_', ' ')  # Forward_Euler --> Forward Euler
+  # args.solver = args.solver.replace('_', ' ')  # Forward_Euler --> Forward Euler
 
   print('args', args)
   #####################################
@@ -252,43 +252,6 @@ def main():
 
 if __name__ == '__main__':
   main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
