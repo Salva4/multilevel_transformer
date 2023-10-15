@@ -1,6 +1,11 @@
+import copy
 import torch
 import torch.nn as nn
-import copy
+import sys
+
+sys.path.append('../../../src/')
+
+from ode_solvers.ode_solvers import Φ_ForwardEuler, Φ_Heun, Φ_RK4
 
 class ContinuousBlock(nn.Module):
   def __init__(self, ψ, Nf, T, solver, coarsening_factor, num_levels):#, interpol):
@@ -53,24 +58,17 @@ class ContinuousBlock(nn.Module):
          self.ψ[i] \
          for i in range(len(self.ψ)) if i % coarsening_factor**level == 0]
 
-    if solver == 'Forward Euler':
-      for i in range(N):
-        x = x + dt * ψ[i](x, **kwargs)['x']#ψ[i](x)
+    for i in range(N):
+      if solver == 'Forward Euler':
+        x = Φ_ForwardEuler(F=ψ[i], x=x, dt=dt, **kwargs)
 
-    elif solver == 'Heun':
-      for i in range(N):
-        ψ_i_x = ψ[i](x, **kwargs)['x']#ψ[i](x)
-        x = x + dt * (ψ_i_x + ψ[i+1](x + dt * ψ_i_x, **kwargs)['x'])/2#ψ[i+1](x + dt * ψ_i_x))/2
+      elif solver == 'Heun':
+        x = Φ_Heun(F_i=ψ[i], F_ip1=ψ[i+1], x=x, dt=dt, **kwargs)
 
-    elif solver == 'RK4':
-      for i in range(N):
-        k1 = ψ[2*i  ](x            , **kwargs)['x']
-        k2 = ψ[2*i+1](x + dt/2 * k1, **kwargs)['x']
-        k3 = ψ[2*i+1](x + dt/2 * k2, **kwargs)['x']
-        k4 = ψ[2*i+2](x + dt   * k3, **kwargs)['x']
-        x = x + dt * (k1 + 2*k2 + 2*k3 + k4)/6
+      elif solver == 'RK4':
+        x = Φ_RK4(F_i=ψ[i], F_ipc5=ψ[i+1], F_ip1=ψ[i+2], x=x, dt=dt, **kwargs)
 
-    else: raise Exception()
+      else: raise Exception()
 
     return {'x': x}
 
