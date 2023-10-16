@@ -6,33 +6,40 @@ import sys
 sys.path.append('../../../src/')
 
 from ode_solvers.ode_solvers import Φ_ForwardEuler, Φ_Heun, Φ_RK4
+from mgrit.mgrit import MGRIT_fwd
 
 class ContinuousBlock(nn.Module):
-  def __init__(self, ψ, Nf, T, solver, coarsening_factor, num_levels):#, interpol):
+  def __init__(self, ψ, Nf, T, solver, coarsening_factor):#, num_levels):#, interpol):
     super().__init__()
     self.Nf = Nf
     self.T = T
     self.solver = solver
-    self.coarsening_factor = coarsening_factor
-    self.num_levels = num_levels
+    self.c = c = coarsening_factor
+    # self.num_levels = num_levels
     # self.interpol = interpol
 
-    self.N = []
-    for level in range(num_levels): 
-      self.N.append(Nf // coarsening_factor ** level)
+    self.Ns = []
+    level = 0
+    # for level in range(num_levels): 
+    while Nf % c**level == 0:
+      self.Ns.append(Nf // c**level)
+      level += 1
 
     self.ψ = nn.ModuleList([])
     if self.solver == 'Forward Euler':
+      self.Φ = Φ_ForwardEuler
       for i in range(self.Nf):
         self.ψ.append(copy.deepcopy(ψ[i]))  # basis functions
 
     elif self.solver == 'Heun': 
+      self.Φ = Φ_Heun
       for i in range(self.Nf):
         self.ψ.append(copy.deepcopy(ψ[i]))
 
       self.ψ.append(copy.deepcopy(ψ[-1]))
 
     elif self.solver == 'RK4':
+      self.Φ = Φ_RK4
       for i in range(self.Nf):
         for _ in range(2): self.ψ.append(copy.deepcopy(ψ[i]))
 
@@ -48,27 +55,29 @@ class ContinuousBlock(nn.Module):
     #   'ln2.weight', 'ln2.bias'
     # ]
 
-  def forward(self, x, level, **kwargs):
-    N = self.N[level]
-    T = self.T
-    coarsening_factor = self.coarsening_factor
-    dt = T / N
-    solver = self.solver
-    ψ = [#lambda x: self.ψ[i](x, **kwargs)['x'] \
-         self.ψ[i] \
-         for i in range(len(self.ψ)) if i % coarsening_factor**level == 0]
+  def forward(self, x, MGRIT=False, MGOPT=False, **kwargs):
+    assert MGRIT + MGOPT <= 1
+    if not (MGRIT or MGOPT): assert 'level' in kwargs
 
-    for i in range(N):
-      if solver == 'Forward Euler':
-        x = Φ_ForwardEuler(F=ψ[i], x=x, dt=dt, **kwargs)
+    if not MGRIT and not MGOPT:
+      level = kwargs['level']
 
-      elif solver == 'Heun':
-        x = Φ_Heun(F_i=ψ[i], F_ip1=ψ[i+1], x=x, dt=dt, **kwargs)
+      N = self.Ns[level]
+      T = self.T
+      c = self.c
+      dt = T / N
+      # ψ = [self.ψ[i] for i in range(len(self.ψ)) if i % c**level == 0]
+      ψ = self.ψ[::c**level]
 
-      elif solver == 'RK4':
-        x = Φ_RK4(F_i=ψ[i], F_ipc5=ψ[i+1], F_ip1=ψ[i+2], x=x, dt=dt, **kwargs)
+      for i in range(N):
+        x = self.Φ(F=ψ, i=i, x=x, dt=dt, **kwargs)
 
-      else: raise Exception()
+    elif MGRIT: 
+      u = MGRIT_fwd(u0=x, Ns=self.Ns, T=self.T, c=self.c, Φ=self.Φ, Ψ=self.ψ, **kwargs)
+      x = u#[-1]
+
+    elif MGOPT:
+      x = MGOPT_fwd(x, **kwargs)
 
     return {'x': x}
 

@@ -39,18 +39,19 @@ parser.add_argument('--num_epochs', type=str, default='1000000000', help='10_10_
 parser.add_argument('--optimizer', type=str, default='SGD')
 parser.add_argument('--output_fn', type=str, default=None)
 parser.add_argument('--seed', type=int, default=0)
-parser.add_argument('--solver', type=str, default='Forward_Euler')
+parser.add_argument('--solver', type=str, default='Forward Euler')
 parser.add_argument('--T', type=float, default=None)
 args = parser.parse_args()
 # parser.add_argument('--init', type=str, required=True)#default='xavier')
 # parser.add_argument('--pe', type=str, required=True)#default='torch')
 
-## Experiment for PC-cpu
+# ## Experiment for PC-cpu
 # args.debug = True
+# args.continuous = True
 # args.levels_scheme = '1_0_1'
 # args.lr = '1e-2_1e-3'
 # args.momentum = '0._.9'
-# args.num_epochs = '2'#'2_2_2'
+# args.num_epochs = '2_2_2'
 # args.optimizer = 'SGD'
 
 def assert_arguments(args):
@@ -105,7 +106,7 @@ def main():
     args.batch_size = 2
     # args.continuous = True
     args.max_len = 10
-    args.N = 2
+    args.N = 8#2
 
   assert_arguments(args)
 
@@ -198,7 +199,7 @@ def main():
     num_levels = len(args.lr.split('_'))
     model = ContinuousModel(
       model=model, T=args.T, solver=args.solver, 
-      coarsening_factor=args.coarsening_factor, num_levels=num_levels,
+      coarsening_factor=args.coarsening_factor, #num_levels=num_levels,
     )
 
   # optimizer = (torch.optim.Adam if args.optimizer == 'Adam' else torch.optim.SGD)(model.parameters(), lr=args.lr)

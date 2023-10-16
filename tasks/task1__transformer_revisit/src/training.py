@@ -272,6 +272,11 @@ def train_epoch(
 
 		model_inputs = {'x': inputs, 'level': level}
 		outputs = model(**model_inputs)['x']#.cpu() 2/2
+		print('conv', outputs.ravel()[-1])
+		model_inputs_mgrit = {'x': inputs, 'relaxation': 'F', 'num_levels': 2, 
+		                'num_iterations': 2, 'MGRIT': True}
+		outputs_mgrit = model(**model_inputs_mgrit)['x']#.cpu() 2/2
+		print('mgrit', outputs_mgrit.ravel()[-1])
 		loss = criterion(
 			outputs.reshape(-1, outputs.shape[-1]), 
 			targets.reshape(-1)
