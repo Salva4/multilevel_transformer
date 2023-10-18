@@ -3,18 +3,24 @@ import torch.nn as nn
 from ._utils.positional_encoding import TorchPositionalEncoding
 
 class ContinuousResidualLayer(nn.Module):
-  def __init__(self, **kwargs):
-    super().__init__(**kwargs)    
-    self.fc1 = nn.Linear(128, 128)
-    self.fc2 = nn.Linear(128, 128)
+  def __init__(self, model_dimension, num_heads, **kwargs):
+    '''
+    Default: model_dimension=128, num_heads=1, dropout=.3 (changed to 0. in tb)
+    '''
+    super().__init__()#**kwargs)
+    self.d = model_dimension
+    self.num_heads = num_heads
+
+    self.fc1 = nn.Linear(self.d, self.d)
+    self.fc2 = nn.Linear(self.d, self.d)
     self.att = nn.MultiheadAttention(
-      embed_dim=128, 
-      num_heads=1, 
+      embed_dim=self.d, 
+      num_heads=self.num_heads, 
       dropout=0,#.3, 
       batch_first=True
     )
-    self.ln1 = nn.LayerNorm(128)
-    self.ln2 = nn.LayerNorm(128)
+    self.ln1 = nn.LayerNorm(self.d)
+    self.ln2 = nn.LayerNorm(self.d)
 
   def forward(self, x, padding_mask, **kwargs):
     # Encoder1DBlock
@@ -36,10 +42,12 @@ class ContinuousResidualLayer(nn.Module):
     return {'x': x}
 
 class PostContinuousBlock(nn.Module):
-  def __init__(self, **kwargs):
-    super().__init__(**kwargs)
-    self.fc3 = nn.Linear(128, 49)
-    self.ln3 = nn.LayerNorm(128)
+  def __init__(self, model_dimension, **kwargs):
+    super().__init__()#**kwargs)
+    self.d = model_dimension
+
+    self.fc3 = nn.Linear(self.d, 49)
+    self.ln3 = nn.LayerNorm(self.d)
 
   def forward(self, x, **kwargs):
     x = self.ln3(x)
@@ -48,11 +56,13 @@ class PostContinuousBlock(nn.Module):
     return {'x': x}
 
 class PreContinuousBlock(nn.Module):
-  def __init__(self, **kwargs):
-    super().__init__(**kwargs)
-    self.emb = nn.Embedding(15514, 128)
+  def __init__(self, model_dimension, **kwargs):
+    super().__init__()#**kwargs)
+    self.d = model_dimension
+
+    self.emb = nn.Embedding(15514, self.d)
     # self.dropout = nn.Dropout(p=.1)
-    self.posenc = TorchPositionalEncoding(128)
+    self.posenc = TorchPositionalEncoding(self.d)
 
   def forward(self, x, **kwargs):
     padding_mask = (x == 0)

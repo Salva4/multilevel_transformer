@@ -1,7 +1,6 @@
-import argparse
+# import argparse
 import numpy as np 
 # import matplotlib.pyplot as plt
-import sys
 import time
 import torch
 import torch.nn as nn
@@ -11,39 +10,25 @@ import sys
 
 sys.path.append('../../../src/')
 
+from argument_parsing import parse_arguments
 import input_pipeline
 import preprocessing
 from model.model import Model
 from continuous_model.continuous_model import ContinuousModel
 from training import train_epoch
 
-DATA_PATH_TRAIN = '../data/en_gum-ud-train.conllu.txt'
-DATA_PATH_DEV = '../data/en_gum-ud-dev.conllu.txt'
+# torch.set_default_dtype(torch.float64)
+
+DATA_PATH_TRAIN = '../data/en_gum-ud-train.conllu.txt'#'/users/msalvado/MLT/ML_PQ/data/en_gum-ud-train.conllu.txt'
+DATA_PATH_DEV = '../data/en_gum-ud-dev.conllu.txt'#'/users/msalvado/MLT/ML_PQ/data/en_gum-ud-dev.conllu.txt'
 DATA_PATH_TRAIN_DEBUG = '../data/en_gum-ud-train.conllu_debug.txt'
 DATA_PATH_DEV_DEBUG = '../data/en_gum-ud-dev.conllu_debug.txt'
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--batch_size', type=int, default=8)#64
-parser.add_argument('--coarsening_factor', type=int, default=2)
-parser.add_argument('--continuous', action='store_true')
-parser.add_argument('--debug', action='store_true')
-parser.add_argument('--interpol', type=str, default='constant')  # <-- always 'linear' in MG/OPT: I, R
-parser.add_argument('--levels_scheme', type=str, default='0', help='2_1_2_1_0_...')
-parser.add_argument('--lr', type=str, default='1e-2', help='lrlvl0_lrlvl1_...')
-parser.add_argument('--max_len', type=int, default=2048)
-parser.add_argument('--model_name', type=str, default='transformer') # Linear, Transformer
-parser.add_argument('--models_dir', type=str, default=None)
-parser.add_argument('--momentum', type=str, default='.9', help='momentumlvl0_momentumlvl1_...')
-parser.add_argument('--N', type=int, default=4)
-parser.add_argument('--num_epochs', type=str, default='1000000000', help='10_10_10_10_10_...')
-parser.add_argument('--optimizer', type=str, default='SGD')
-parser.add_argument('--output_fn', type=str, default=None)
-parser.add_argument('--seed', type=int, default=0)
-parser.add_argument('--solver', type=str, default='Forward Euler')
-parser.add_argument('--T', type=float, default=None)
-args = parser.parse_args()
-# parser.add_argument('--init', type=str, required=True)#default='xavier')
-# parser.add_argument('--pe', type=str, required=True)#default='torch')
+args = parse_arguments()
+# args.model_dimension = 8
+# args.max_len = 5
+# args.num_epochs = '2'
+# args.debug = True
 
 # ## Experiment for PC-cpu
 # args.debug = True
@@ -88,6 +73,7 @@ def obtain_ds_dl():
     attributes_target=attributes_target,
     batch_size=args.batch_size, 
     bucket_size=args.max_len,
+    seed=0,
   )
   eval_ds, eval_dl = preprocessing.obtain_dataset(
     filename=dev, 
@@ -96,6 +82,7 @@ def obtain_ds_dl():
     attributes_target=attributes_target,
     batch_size=args.batch_size,#187, 
     bucket_size=args.max_len,
+    seed=0,
   )
 
   return train_ds, eval_ds, train_dl, eval_dl
@@ -186,14 +173,18 @@ def main():
   ########################################
 
   ################################# Conventional training
-  torch.manual_seed(args.seed)
+  torch.manual_seed(0)#args.seed)
 
   model_architecture_path = '.'.join(
     ['model_architectures', args.model_name, 'architecture']
   )
   model = Model(
-    model_architecture_path=model_architecture_path, N=args.N,
+    model_architecture_path=model_architecture_path, **args.__dict__#N=args.N,
   ).to(device)
+  
+  # for p in model.parameters():
+  #   print(f'{p.dtype}, {p.shape}, {p.ravel()[:10]}')
+  # sys.exit()
 
   if args.continuous:
     num_levels = len(args.lr.split('_'))
@@ -218,7 +209,7 @@ def main():
 
   print()
   print(f'3. Training models')
-  torch.manual_seed(args.seed)
+  torch.manual_seed(0)#args.seed)
   num_epochs_list = [int(num_epochs) for num_epochs in args.num_epochs.split('_')]
   levels_list = [int(level) for level in args.levels_scheme.split('_')]
   lr_list = [float(lr) for lr in args.lr.split('_')]
@@ -235,8 +226,11 @@ def main():
     if args.optimizer == 'SGD':
       for g in optimizer.param_groups: g['momentum'] = momentum
 
-    # print('optimizer', optimizer)
+    print('optimizer', optimizer)
+    # print(len(train_dl), next(iter(train_dl)))
+    # sys.exit()
 
+    # torch.manual_seed(0)
     for epoch in tqdm.tqdm(range(num_epochs)):
       model, va_acc = train_epoch(
         train_dl, eval_dl, model, optimizer, criterion, device, level
