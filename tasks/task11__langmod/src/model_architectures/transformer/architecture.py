@@ -2,14 +2,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .methods.init_weights import init_weights
+# from .methods.init_weights import init_weights
 from ._utils.F_dec import F_dec
 
 class ContinuousResidualLayer(nn.Module):
   def __init__(self, **kwargs):
     super().__init__()
     self.F = F_dec(**kwargs)
-    self.apply(init_weights)
+    # self.apply(init_weights)
 
   def forward(self, x, **kwargs): return {'x': self.F(x)}
 
@@ -18,7 +18,7 @@ class PostContinuousBlock(nn.Module):
     super().__init__()
     self.ln = nn.LayerNorm(d_model) # final layer norm
     self.classifier = nn.Linear(d_model, vocab_size)
-    self.apply(init_weights)
+    # self.apply(init_weights)
 
   def forward(self, x, **kwargs):
     x = self.ln(x) # (B,T,C)
@@ -36,7 +36,7 @@ class PreContinuousBlock(nn.Module):
     super().__init__()
     self.emb = nn.Embedding(vocab_size, d_model)
     self.posenc = nn.Embedding(block_size, d_model)
-    self.apply(init_weights)
+    # self.apply(init_weights)
 
   def forward(self, x, **kwargs):
     B, T = x.shape

@@ -9,7 +9,7 @@ from ode_solvers.ode_solvers import Φ_ForwardEuler, Φ_Heun, Φ_RK4
 from mgrit.mgrit import MGRIT_fwd
 
 class ContinuousBlock(nn.Module):
-  def __init__(self, ψ, Nf, T, solver, coarsening_factor):#, num_levels):#, interpol):
+  def __init__(self, ψ, Nf, T, solver, coarsening_factor=2):#, num_levels):#, interpol):
     super().__init__()
     self.Nf = Nf
     self.T = T
@@ -58,10 +58,9 @@ class ContinuousBlock(nn.Module):
 
   def forward(self, x, MGRIT=False, MGOPT=False, **kwargs):
     assert MGRIT + MGOPT <= 1
-    if not (MGRIT or MGOPT): assert 'level' in kwargs
 
     if not MGRIT and not MGOPT:
-      level = kwargs['level']
+      level = kwargs.get('level', 0)
 
       N = self.Ns[level]
       T = self.T

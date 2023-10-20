@@ -33,11 +33,12 @@ def main():
   # ------------
 
   if args.debug:
-    max_iters = 100
+    max_iters = 10#100
     batch_size = 2
     block_size = 8
     eval_interval = 1
     eval_iters = 1
+    max_new_tokens = 10
     n_embd = 32
     n_head = 4
 
@@ -80,7 +81,7 @@ def main():
 
   # generate from the model
   context = torch.zeros((1, 1), dtype=torch.long, device=device)
-  print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+  print(decode(m.generate(context, max_new_tokens=max_new_tokens)[0].tolist()))
   #open('../data/more.txt', 'w').write(decode(m.generate(context, max_new_tokens=10000)[0].tolist()))
 
 if __name__ == '__main__':

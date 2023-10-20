@@ -39,17 +39,17 @@ class Model(nn.Module):
     super().__init__()
     architecture_module = importlib.import_module(model_architecture_path)
 
-    self.continuous_block = ContinuousBlock(
-      ResidualLayer=architecture_module.ContinuousResidualLayer,
-      N=N,
-      **kwargs,
-    )
-
     # if seed_precontinuous_block is not None: 
     #   torch.manual_seed(seed_precontinuous_block)
     torch.manual_seed(0)
     self.precontinuous_block  = architecture_module.PreContinuousBlock(
       **kwargs
+    )
+
+    self.continuous_block = ContinuousBlock(
+      ResidualLayer=architecture_module.ContinuousResidualLayer,
+      N=N,
+      **kwargs,
     )
 
     # if seed_postcontinuous_block is not None:

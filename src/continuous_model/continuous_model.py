@@ -7,12 +7,12 @@ from .continuous_block import ContinuousBlock
 ##
 # Continuous transformer encoder layer using their code's scheme & <i>MultiheadAttention</i>
 class ContinuousModel(nn.Module):
-  def __init__(self, model, T, solver, coarsening_factor):#, num_levels):
+  def __init__(self, model, **kwargs_continuous_block):#, num_levels):
     print('Continuous approach')
     super().__init__()
     self.model = model
     # self.interpol = kwargs['interpol']
-    print(f'N={self.model.continuous_block.N}, T={T}')
+    print(f'''N={self.model.continuous_block.N}, T={kwargs_continuous_block['T']}''')
     print()
 
     self.precontinuous_block  = self.model.precontinuous_block
@@ -24,9 +24,7 @@ class ContinuousModel(nn.Module):
         [layer.residual_layer for layer in model.continuous_block.layers]
       ),
       Nf=self.model.continuous_block.N,
-      T=T,
-      solver=solver,
-      coarsening_factor=coarsening_factor,
+      **kwargs_continuous_block,
       # num_levels=num_levels,
     )
       # interpol=self.interpol,

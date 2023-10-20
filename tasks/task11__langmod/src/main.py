@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--continuous', action='store_true')
 parser.add_argument('--debug', action='store_true')
 parser.add_argument('--model_name', type=str, default='transformer')
-parser.add_argument('--num_layers', type=int, default=6)
+parser.add_argument('--N', type=int, default=6)
 parser.add_argument('--num_epochs', type=int, default=5000)
 parser.add_argument('--solver', type=str, default='Forward Euler')
 parser.add_argument('--T', type=float, default=None)
@@ -26,6 +26,7 @@ args = parser.parse_args()
 ## This here below must change
 sys.path.append(f'model_architectures/{args.model_name}/methods/')
 from generate import generate
+from init_weights import init_weights
 
 def main():
   # hyperparameters
@@ -40,7 +41,7 @@ def main():
   eval_iters = 200
   n_embd = 384
   n_head = 6
-  n_layer = args.num_layers
+  n_layer = args.N
   T = args.T if args.T is not None else n_layer
   dropout = 0.2
   seed = 1337
@@ -59,9 +60,11 @@ def main():
   torch.manual_seed(seed)
 
   ## DATA
+  print('\n1. Loading data')
   train_data, val_data, decode, vocab_size = data.main()
 
   ## MODEL
+  print('\n2. Building model')
   print(f'Building model w/ {n_layer} decoder layers')
   model_architecture_path = '.'.join(
   ['model_architectures', args.model_name, 'architecture']
@@ -75,13 +78,23 @@ def main():
     vocab_size=vocab_size,
     block_size=block_size,
   )
+  torch.manual_seed(seed)
+  model.apply(init_weights)
+  
   if args.continuous:
+    print(' 2.1 Building continuous model')
     model = ContinuousModel(
       model=model, T=T, solver=args.solver,
     )
+
   m = model.to(device)
   # print the number of parameters in the model
   print(sum(p.numel() for p in m.parameters())/1e6, 'M parameters')
+
+  ## Debug: compare model weights
+  # for p in m.parameters():
+  #   print(p.shape, p.ravel()[-10:])
+  # sys.exit()
 
   # create a PyTorch optimizer
   optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
@@ -92,7 +105,7 @@ def main():
     
   torch.manual_seed(seed)
 
-  print(f'Training model w/ {n_layer} decoder layers')
+  print(f'\n3. Training model w/ {n_layer} decoder layers')
   for epoch in range(max_iters):
     # every once in a while evaluate the loss on train and val sets
     if epoch % eval_interval == 0 or epoch == max_iters - 1:
@@ -106,10 +119,12 @@ def main():
     model_inputs = {'x': xb, 'targets': yb}
     outputs = model(**model_inputs)#xb, yb)
     logits, loss = outputs['x'], outputs['loss']
+
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
 
+  print('\n4. Generating text')
   # generate from the model
   context = torch.zeros((1, 1), dtype=torch.long, device=device)
   print(
