@@ -28,6 +28,7 @@ def parse_arguments():
   parser.add_argument('--continuous', action='store_true')
   parser.add_argument('--interpol', type=str, default='constant')  # <-- always 'linear' in MG/OPT: I, R
   parser.add_argument('--levels_scheme', type=str, default='0', help='2_1_2_1_0_...')
+  parser.add_argument('--mgrit', action='store_true')
   parser.add_argument('--solver', type=str, default='Forward Euler')
   parser.add_argument('--T', type=float, default=None)
 
@@ -36,3 +37,5 @@ def parse_arguments():
 
 # parser.add_argument('--init', type=str, required=True)#default='xavier')
 # parser.add_argument('--pe', type=str, required=True)#default='torch')
+
+

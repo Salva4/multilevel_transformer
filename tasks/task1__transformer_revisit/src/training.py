@@ -260,7 +260,7 @@ color = lambda z, col: print(z)
 
 ############### Conventional training
 def train_epoch(
-  train_dl, eval_dl, model, optimizer, criterion, device, level
+  train_dl, eval_dl, model, optimizer, criterion, device, level, mgrit,
 ):
   ## Training
   model.train()
@@ -270,13 +270,17 @@ def train_epoch(
     inputs, targets = inputs.to(device), targets.to(device)
     # inputs = inputs.to(device) # only inputs, no targets 1/2
 
-    model_inputs = {'x': inputs, 'level': level}
-    outputs = model(**model_inputs)['x']#.cpu() 2/2
-    # print('conv', outputs.ravel()[-1])
-    # model_inputs_mgrit = {'x': inputs, 'relaxation': 'F', 'num_levels': 2, 
-    #                 'num_iterations': 2, 'MGRIT': True}
-    # outputs_mgrit = model(**model_inputs_mgrit)['x']#.cpu() 2/2
-    # print('mgrit', outputs_mgrit.ravel()[-1])
+    if not mgrit:
+      model_inputs = {'x': inputs, 'level': level}
+      outputs = model(**model_inputs)['x']#.cpu() 2/2
+      # print('conv', outputs.ravel()[-10])
+
+    else:
+      model_inputs = {'x': inputs, 'relaxation': 'F', 'num_levels': 2, 
+                      'num_iterations': 2, 'MGRIT': True}
+      outputs = model(**model_inputs)['x']#.cpu() 2/2
+      # print('mgrit', outputs.ravel()[-10])
+
     loss = criterion(
       outputs.reshape(-1, outputs.shape[-1]), 
       targets.reshape(-1)

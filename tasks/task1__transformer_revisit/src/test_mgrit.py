@@ -31,13 +31,14 @@ args = parse_arguments()
 # args.debug = True
 
 # ## Experiment for PC-cpu
-# args.debug = True
-# args.continuous = True
+args.debug = True
+args.continuous = True
 # args.levels_scheme = '1_0_1'
 # args.lr = '1e-2_1e-3'
 # args.momentum = '0._.9'
 # args.num_epochs = '2_2_2'
 # args.optimizer = 'SGD'
+args.mgrit = True
 
 def assert_arguments(args):
   ## ML weights initialization
@@ -47,6 +48,7 @@ def assert_arguments(args):
   if not args.continuous:
     assert num_levels == 1 and len(args.levels_scheme.split('_')) == 1 \
                            and len(args.num_epochs.split('_')) == 1
+    assert not args.mgopt and not args.mgrit
   else:
     if num_levels > 1:
       assert args.N // args.coarsening_factor ** (num_levels - 1) >  0 and \
@@ -94,9 +96,9 @@ def main():
   ## args managing ####################
   if args.debug:
     args.batch_size = 2
-    # args.continuous = True
+    args.continuous = True
     args.max_len = 10
-    args.N = 8#2
+    args.N = 16#8#2
 
   assert_arguments(args)
 
@@ -220,35 +222,55 @@ def main():
 
   print(f'Starting at level {levels_list[0]}')
 
-  for k, (num_epochs, level) in enumerate(zip(num_epochs_list, levels_list)):
-    lr = lr_list[level]
-    momentum = momentum_list[level]
+  level = 0
+  lr = lr_list[level]
+  momentum = momentum_list[level]
 
-    for g in optimizer.param_groups: g['lr'] = lr
+  for g in optimizer.param_groups: g['lr'] = lr
 
-    if args.optimizer == 'SGD':
-      for g in optimizer.param_groups: g['momentum'] = momentum
+  if args.optimizer == 'SGD':
+    for g in optimizer.param_groups: g['momentum'] = momentum
 
-    print('optimizer', optimizer)
-    # print(len(train_dl), next(iter(train_dl)))
-    # sys.exit()
+  model.train()
+  batch = next(iter(train_dl))
+  inputs, targets = batch
+  inputs, targets = inputs.to(device), targets.to(device)
 
-    # torch.manual_seed(0)
-    epoch_time_start = time.time()
-    for epoch in tqdm.tqdm(range(num_epochs)):
-      model, va_acc = train_epoch(
-        train_dl, eval_dl, model, optimizer, criterion, device, level,
-        args.mgrit,
-      )
+  ## Conventional
+  model_inputs = {'x': inputs, 'level': level}
+  t0_conv = time.time()
+  with torch.no_grad():
+    outputs = model(**model_inputs)['x']#.cpu() 2/2
+  t_conv = time.time() - t0_conv
 
-      print(f'Epoch {str(epoch).zfill(2)}\tVa acc:\t{va_acc : .4f}')
+  ## MGRIT
+  model_inputs_mgrit = {'x': inputs, 'relaxation': 'F', 'num_levels': 2, 
+                  'num_iterations': 3, 'MGRIT': True}
+  t0_mgrit = time.time()
+  outputs_mgrit = model(**model_inputs_mgrit)['x'][-1]#.cpu() 2/2
+  t_mgrit = time.time() - t0_mgrit
 
-      epoch_time_end = time.time()
-      print(f'Epoch time: {epoch_time_end - epoch_time_start} seconds')
-      epoch_time_start = time.time()
+  # print('  conv' , outputs      .ravel()[-10])
+  # print('  mgrit', outputs_mgrit.ravel()[-10])
 
-    if k != len(num_epochs_list) - 1: 
-      print(f'Changing from level {levels_list[k]} to level {levels_list[k+1]}')
+  loss = criterion(
+    outputs.reshape(-1, outputs.shape[-1]), 
+    targets.reshape(-1)
+  )
+  loss_mgrit = criterion(
+    outputs_mgrit.reshape(-1, outputs_mgrit.shape[-1]), 
+    targets.reshape(-1)
+  )
+
+  print()
+  print('loss:')
+  print('  conv ' , loss      .item())
+  print('  mgrit', loss_mgrit.item())
+
+  print()
+  print('time:')
+  print('  conv ' , t_conv )
+  print('  mgrit', t_mgrit)
 
   ########################################
   

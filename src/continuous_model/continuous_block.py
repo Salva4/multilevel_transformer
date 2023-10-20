@@ -26,6 +26,7 @@ class ContinuousBlock(nn.Module):
       level += 1
 
     self.ψ = nn.ModuleList([])
+
     if self.solver == 'Forward Euler':
       self.Φ = Φ_ForwardEuler
       for i in range(self.Nf):
@@ -73,7 +74,8 @@ class ContinuousBlock(nn.Module):
         x = self.Φ(F=ψ, i=i, x=x, dt=dt, **kwargs)
 
     elif MGRIT: 
-      u = MGRIT_fwd(u0=x, Ns=self.Ns, T=self.T, c=self.c, Φ=self.Φ, Ψ=self.ψ, **kwargs)
+      with torch.no_grad():
+        u = MGRIT_fwd(u0=x, Ns=self.Ns, T=self.T, c=self.c, Φ=self.Φ, Ψ=self.ψ, **kwargs)
       x = u#[-1]
 
     elif MGOPT:

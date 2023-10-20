@@ -1,19 +1,22 @@
 import torch
 
-def coarse_grid_error_approximation(uΔ, NΔ, Φ, ψ, dt, rΔ=None, **kwargs):
-  #if rΔ is not None: uΔ[0] += rΔ[0]  <-- rΔ[0] should always be 0
-  for i in range(1, NΔ+1):  # serial for
-    uΔ[i] = Φ(F=ψ, i=i-1, x=uΔ[i-1], dt=dt, **kwargs)
-    if rΔ is not None: uΔ[i] += rΔ[i]
+def coarse_grid_error_approximation(uΔ, NΔ, Φ, ψ, hΔ, rΔ, **kwargs):
+  vΔ = uΔ.clone()
+  #if rΔ is not None: vΔ[0] += rΔ[0]  <-- rΔ[0] should always be 0
+  for i in range(NΔ):  # serial for
+    vΔ[i+1] = Φ(F=ψ, i=i, x=vΔ[i], dt=hΔ, **kwargs) \
+              + uΔ[i+1] - Φ(F=ψ, i=i, x=uΔ[i], dt=hΔ, **kwargs) \
+              + rΔ[i+1]
+  return vΔ
 
-def compute_r(u, N, Φ, ψ, dt, **kwargs):
+def compute_r(u, N, Φ, ψ, h, **kwargs):
   a = torch.empty_like(u)
-  a[0] = u[0]
-  for i in range(1, N+1):  # parallel for
-    a[i] = u[i] - Φ(F=ψ, i=i-1, x=u[i-1], dt=dt, **kwargs)
+  a[0] = u[0].clone()
+  for i in range(N):  # parallel for
+    a[i+1] = u[i+1].clone() - Φ(F=ψ, i=i, x=u[i], dt=h, **kwargs)
   
   ## r := g - a, with g[0] = u0, g[1:] = 0
-  r = -a  
+  r = -a.clone()
   _ = r[0].zero_()
   return r
 
@@ -21,101 +24,71 @@ def compute_r(u, N, Φ, ψ, dt, **kwargs):
 #   for i in range(NΔ):
 #     u[c*i] += eΔ[i]
 
-def F_relaxation(u, N, c, Φ, ψ, dt, r=None, **kwargs):
+def F_relaxation(u, N, c, Φ, ψ, h, **kwargs):
   for i in range(N//c):  # parallel for
-    if r is not None: u[c*i] += r[c*i]
-
     for ii in range(c-1):  # serial for
-      idx = c*i + ii + 1
-      u[idx] = Φ(F=ψ, i=idx-1, x=u[idx-1], dt=dt, **kwargs)
-      if r is not None: u[idx] += r[idx]
+      idx = c*i + ii
+      u[idx+1] = Φ(F=ψ, i=idx, x=u[idx], dt=h, **kwargs)
 
-def C_relaxation(u, N, c, Φ, ψ, dt, r=None, **kwargs):
+def C_relaxation(u, N, c, Φ, ψ, h, **kwargs):
   for i in range(1, N//c + 1):  # parallel for
-    idx = c*i
-    u[idx] = Φ(F=ψ, i=idx-1, x=u[idx-1], dt=dt, **kwargs)
-    if r is not None: u[idx] += r[idx]
+    idx = c*i - 1
+    u[idx+1] = Φ(F=ψ, i=idx, x=u[idx], dt=h, **kwargs)
 
-def interpolate_u(u, vΔ, NΔ, c):
-  for i in range(NΔ):
-    u[c*i] = vΔ[i]
+def interpolate_u(u, eΔ, NΔ, c):
+  for i in range(NΔ+1):  # parallel for
+    u[c*i] += eΔ[i]
 
 def MGRIT_fwd(
     u0, Ns, T, c, Φ, Ψ, relaxation, num_levels, num_iterations, **kwargs
   ):
-  with torch.no_grad():
-    # u0 = torch.randn_like(x)  # initial guess
-    # a = torch.empty(size=(Ns[0]+1, *x.shape))
-    u = u0.new(size=(Ns[0]+1, *u0.shape)).zero_()  # randomize?
-    u[0] = u0.clone()
-    U = num_levels * [None]
+  ''' MGRIT implementation with only 2 levels '''
 
-    for iteration in range(num_iterations):
-      r = None
+  N, NΔ = Ns[:2]
+  h, hΔ = T/N, T/NΔ
+  ψ, ψΔ = Ψ, Ψ[::c]
 
-      ## Relax and go down
-      for level in range(num_levels-1):
-        N, dt, ψ = obtain_N_dt_ψ(level=level, Ns=Ns, T=T, Ψ=Ψ, c=c)
+  u = u0.new(size=(N+1, *u0.shape)).zero_()  # randomize?
+  u[0] = u0.clone()
 
-        if level > 0: u, r = uΔ, rΔ
+  for iteration in range(num_iterations):
 
-        relax_approximation(
-          u=u, N=N, c=c, Φ=Φ, ψ=ψ, dt=dt, relaxation=relaxation, r=r, **kwargs
-        )
-        r = compute_r(u=u, N=N, Φ=Φ, ψ=ψ, dt=dt, **kwargs)
-        uΔ, rΔ = restrict_to_coarser_grid(u=u, r=r, c=c)
+    ## Fine level: relax and go down
+    relax_approximation(
+      u=u, N=N, c=c, Φ=Φ, ψ=ψ, h=h, relaxation=relaxation, **kwargs
+    )
+    r = compute_r(u=u, N=N, Φ=Φ, ψ=ψ, h=h, **kwargs)
+    uΔ, rΔ = restrict_to_coarser_grid(u=u, r=r, c=c)
+    
+    ## Coarse level: compute coarse grid approximation
+    vΔ = coarse_grid_error_approximation(uΔ=uΔ, NΔ=NΔ, Φ=Φ, ψ=ψΔ, hΔ=hΔ, rΔ=rΔ, 
+                                    **kwargs)
+    eΔ = vΔ.clone() - uΔ.clone()
 
-        U[level] = u.clone()
-      
-      ## Coarsest level
-      level = num_levels-1
-      N, dt, ψ = obtain_N_dt_ψ(level=level, Ns=Ns, T=T, Ψ=Ψ, c=c)
-
-      vΔ = uΔ.clone()
-      coarse_grid_error_approximation(vΔ, N, Φ, ψ, dt, r=rΔ, **kwargs)
-      # eΔ = vΔ - uΔ
-
-      ## Correct and go up
-      for level in range(num_levels-2, -1, -1):
-        N, dt, ψ = obtain_N_dt_ψ(level=level, Ns=Ns, T=T, Ψ=Ψ, c=c)
-        u = U[level]
-
-        # correct_u(u=u, eΔ=eΔ, NΔ=N//c, c=c)
-        interpolate_u(u=u, vΔ=vΔ, NΔ=N//c, c=c)
-        relax_approximation(
-          u=u, N=N, c=c, Φ=Φ, ψ=ψ, dt=dt, relaxation='F', **kwargs
-        )
-
-        vΔ = u
-
-      # r = compute_r()
-      # if r.norm() > tol: break
+    ## Fine level: correct and go up
+    interpolate_u(u=u, eΔ=eΔ, NΔ=NΔ, c=c)
+    relax_approximation(
+      u=u, N=N, c=c, Φ=Φ, ψ=ψ, h=h, relaxation='F', **kwargs
+    )
 
   return u
 
-def obtain_N_dt_ψ(level, Ns, Ψ, T, c):
-  N = Ns[level]
-  dt = T/N
-  ψ = Ψ[::c**level]#[Ψ[i] for i in range(len(Ψ)) if i % c**level == 0]
-  return N, dt, ψ
-
-def relax_approximation(u, N, c, Φ, ψ, dt, relaxation, r=None, **kwargs):
-  ## Relax
+def relax_approximation(u, N, c, Φ, ψ, h, relaxation, **kwargs):
   if relaxation == 'F':
-    F_relaxation(u, N, c, Φ, ψ, dt, r, **kwargs)
+    F_relaxation(u, N, c, Φ, ψ, h, **kwargs)
 
   elif relaxation == 'FCF':
-    F_relaxation(u, N, c, Φ, ψ, dt, r, **kwargs)
-    C_relaxation(u, N, c, Φ, ψ, dt, **kwargs)
-    F_relaxation(u, N, c, Φ, ψ, dt, **kwargs)
+    F_relaxation(u, N, c, Φ, ψ, h, **kwargs)
+    C_relaxation(u, N, c, Φ, ψ, h, **kwargs)
+    F_relaxation(u, N, c, Φ, ψ, h, **kwargs)
 
   else: raise Exception()
 
 def restrict_to_coarser_grid(u, r, c):
   ## Restrict approximation and residual to the next coarser grid
-  u = u[::c].clone()
-  r = r[::c].clone()
-  return u, r
+  uΔ = u[::c].clone()
+  rΔ = r[::c].clone()
+  return uΔ, rΔ
 
 
 
