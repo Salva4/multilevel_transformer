@@ -8,20 +8,13 @@ import sys
 
 sys.path.append('../../../src/')
 
+from argument_parsing import parse_arguments
 from continuous_model.continuous_model import ContinuousModel
 import data
 from model.model import Model
 from utils import estimate_loss, get_batch
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--continuous', action='store_true')
-parser.add_argument('--debug', action='store_true')
-parser.add_argument('--model_name', type=str, default='transformer')
-parser.add_argument('--N', type=int, default=6)
-parser.add_argument('--num_epochs', type=int, default=5000)
-parser.add_argument('--solver', type=str, default='Forward Euler')
-parser.add_argument('--T', type=float, default=None)
-args = parser.parse_args()
+args = parse_arguments()
 
 ## This here below must change
 sys.path.append(f'model_architectures/{args.model_name}/methods/')
@@ -30,32 +23,32 @@ from init_weights import init_weights
 
 def main():
   # hyperparameters
-  batch_size = 64 # how many independent sequences will we process in parallel?
-  block_size = 256 # what is the maximum context length for predictions?
-  max_iters = args.num_epochs
+  max_iters = int(args.num_epochs)
   eval_interval = 500
-  learning_rate = 3e-4
+  learning_rate = float(args.lr)
   max_new_tokens = 500
   device = 'cuda' if torch.cuda.is_available() else 'cpu'
   print(device)
   eval_iters = 200
-  n_embd = 384
-  n_head = 6
+  n_embd = args.model_dimension
+  n_head = args.num_heads
   n_layer = args.N
   T = args.T if args.T is not None else n_layer
   dropout = 0.2
-  seed = 1337
+  seed = args.seed
   # ------------
 
   if args.debug:
     max_iters = 10#100
-    batch_size = 2
+    args.batch_size = 2
     block_size = 8
     eval_interval = 1
     eval_iters = 1
     max_new_tokens = 10
     n_embd = 32
     n_head = 4
+
+  print(args)
 
   torch.manual_seed(seed)
 
@@ -76,7 +69,7 @@ def main():
     n_head=n_head,
     dropout=dropout,
     vocab_size=vocab_size,
-    block_size=block_size,
+    block_size=args.max_len,
   )
   torch.manual_seed(seed)
   model.apply(init_weights)
@@ -98,6 +91,7 @@ def main():
 
   # create a PyTorch optimizer
   optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+  criterion = nn.CrossEntropyLoss()
 
   # if k != 0:
   #   print(f'Interpolating weights from previous model to the new one')
@@ -109,16 +103,21 @@ def main():
   for epoch in range(max_iters):
     # every once in a while evaluate the loss on train and val sets
     if epoch % eval_interval == 0 or epoch == max_iters - 1:
-        losses = estimate_loss(model, eval_iters, train_data, val_data, block_size, batch_size, device)
-        print(f"step {epoch}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+        losses = estimate_loss(
+          model, eval_iters, train_data, val_data, args.max_len, 
+          args.batch_size, device, criterion
+        )
+        print(
+          f"Epoch {epoch}: train loss {losses['train']:.4f}, " \
+        + f"val loss {losses['val']:.4f}"
+        )
 
-    # sample a batch of data
-    xb, yb = get_batch('train', train_data, val_data, block_size, batch_size, device)
-
-    # evaluate the loss
-    model_inputs = {'x': xb, 'targets': yb}
-    outputs = model(**model_inputs)#xb, yb)
-    logits, loss = outputs['x'], outputs['loss']
+    batch = get_batch('train', train_data, val_data, args.max_len, args.batch_size, device)
+    input_ids, target_ids = batch
+    model_inputs = {'input': input_ids, 'target': target_ids,
+                    'criterion': criterion, 'compute_accuracy': False}
+    model_outputs = model(**model_inputs)
+    loss = model_outputs['loss']
 
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
@@ -130,7 +129,8 @@ def main():
   print(
     decode(
       generate(
-        model=m, x=context, max_new_tokens=max_new_tokens, block_size=block_size
+        model=m, x=context, max_new_tokens=max_new_tokens, 
+        block_size=args.max_len,
       )[0].tolist()
     )
   )

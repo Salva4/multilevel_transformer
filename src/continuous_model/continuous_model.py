@@ -36,10 +36,11 @@ class ContinuousModel(nn.Module):
 
   def forward(self, **state):
     # state = {'x': x}
-    state.update(self.precontinuous_block (**state))
-    state.update(self.continuous_block    (**state))
-    state.update(self.postcontinuous_block(**state))
-    return state
+    # state.update(self.precontinuous_block (**state))
+    # state.update(self.continuous_block    (**state))
+    # state.update(self.postcontinuous_block(**state))
+    # return state
+    return self.model.static_forward(self, **state)
     
   # def init_params(self):
   #   self.apply(self._init_layers)

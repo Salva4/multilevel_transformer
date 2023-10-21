@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import sys
 
-from input_pipeline import PAD_ID
+# from input_pipeline import PAD_ID
 # import MGOPT_NN
 
 # import tqdm
@@ -264,62 +264,73 @@ def train_epoch(
 ):
   ## Training
   model.train()
+  losses = np.empty(shape=(len(train_dl)))
+  correct, total = 0, 0
   for i, batch in enumerate(train_dl):
-    inputs, targets = batch
+    input_ids, target_ids = batch
     # inputs, targets = inputs.long(), targets.long()
-    inputs, targets = inputs.to(device), targets.to(device)
+    input_ids, target_ids = input_ids.to(device), target_ids.to(device)
     # inputs = inputs.to(device) # only inputs, no targets 1/2
 
-    if not mgrit:
-      model_inputs = {'x': inputs, 'level': level}
-      outputs = model(**model_inputs)['x']#.cpu() 2/2
-      # print('conv', outputs.ravel()[-10])
+    model_inputs = {
+      'input': input_ids, 'target': target_ids, 'criterion': criterion, 
+      'compute_accuracy': True,
+    }
 
-    else:
-      model_inputs = {'x': inputs, 'relaxation': 'F', 'num_levels': 2, 
-                      'num_iterations': 2, 'MGRIT': True}
-      outputs = model(**model_inputs)['x']#.cpu() 2/2
-      # print('mgrit', outputs.ravel()[-10])
+    if not mgrit: model_inputs.update({'level': level})
+    else: 
+      model_inputs.update({
+      'MGRIT': True, 'relaxation': 'F', 'num_levels': 2, 'num_iterations': 2
+    })
 
-    loss = criterion(
-      outputs.reshape(-1, outputs.shape[-1]), 
-      targets.reshape(-1)
-    )
+    outputs = model(**model_inputs)#.cpu() 2/2
+    # print(outputs.ravel()[-10])
+    loss = outputs['loss']
+    losses[i] = loss.item()
+    correct += outputs['correct']
+    total += outputs['total']
 
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
-    # print(f'batch_idx {i}, inputs {inputs}, targets {targets}, loss {loss}')
-    # for p in model.parameters(): print(p.shape, p.ravel()[:10])
-    # sys.exit()
+  training_loss = losses.mean()
+  training_accuracy = correct/total
 
   ## Evaluation
   model.eval()
   with torch.no_grad():
-    # ## Training accuracy
-    # predictions = outputs.argmax(axis=-1)
-    # tr_accuracy = ((predictions == targets)*(targets != PAD_ID)
-    #   ).sum()/(targets != PAD_ID).sum()
-
-    ## Validation accuracy
-    corr, tot = 0, 0
+    losses = np.empty(shape=(len(eval_dl)))
+    correct, total = 0, 0
     for i, batch in enumerate(eval_dl):
-      inputs, targets = batch   # both inputs & targets --> long
-      # inputs, targets = inputs.long(), targets.long()
-      inputs, targets = inputs.to(device), targets.to(device)
+      input_ids, target_ids = batch
+      input_ids, target_ids = input_ids.to(device), target_ids.to(device)
 
-      model_inputs = {'x': inputs, 'level': level}
-      outputs = model(**model_inputs)['x']
-      predictions = outputs.argmax(axis=-1)
-      
-      corr += ((predictions == targets)*(targets != PAD_ID)).sum().item()
-      tot += (targets != PAD_ID).sum().item()
+      model_inputs = {
+        'input': input_ids, 'target': target_ids, 'criterion': criterion, 
+        'compute_accuracy': True,
+      }
 
-    ## Validation data: 5x187 + 182
-    va_accuracy = corr/tot
+      if not mgrit: model_inputs.update({'level': level})
+      else: 
+        model_inputs.update({
+        'MGRIT': True, 'relaxation': 'F', 'num_levels': 2, 'num_iterations': 2
+      })
+
+      outputs = model(**model_inputs)
+      loss = outputs['loss']
+      losses[i] = loss.item()
+      correct += outputs['correct']
+      total += outputs['total']
+
+  ## Validation data: 5x187 + 182
+  validation_loss = losses.mean()
+  validation_accuracy = correct/total
     
-  return model, va_accuracy
+  return (
+    model, training_loss, training_accuracy, validation_loss, 
+    validation_accuracy,
+  )
 ########################################
 
 

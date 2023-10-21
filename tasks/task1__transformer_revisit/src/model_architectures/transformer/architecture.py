@@ -2,6 +2,23 @@ import torch.nn as nn
 
 from ._utils.positional_encoding import TorchPositionalEncoding
 
+class PreContinuousBlock(nn.Module):
+  def __init__(self, model_dimension, **kwargs):
+    super().__init__()#**kwargs)
+    self.d = model_dimension
+
+    self.emb = nn.Embedding(15514, self.d)
+    # self.dropout = nn.Dropout(p=.1)
+    self.posenc = TorchPositionalEncoding(self.d)
+
+  def forward(self, x, **kwargs):
+    padding_mask = (x == 0)
+    x = self.emb(x)
+    # x = self.dropout(x)
+    x = self.posenc(x)
+
+    return {'x': x, 'padding_mask': padding_mask}
+    
 class ContinuousResidualLayer(nn.Module):
   def __init__(self, model_dimension, num_heads, **kwargs):
     '''
@@ -54,23 +71,5 @@ class PostContinuousBlock(nn.Module):
     x = self.fc3(x)
 
     return {'x': x}
-
-class PreContinuousBlock(nn.Module):
-  def __init__(self, model_dimension, **kwargs):
-    super().__init__()#**kwargs)
-    self.d = model_dimension
-
-    self.emb = nn.Embedding(15514, self.d)
-    # self.dropout = nn.Dropout(p=.1)
-    self.posenc = TorchPositionalEncoding(self.d)
-
-  def forward(self, x, **kwargs):
-    padding_mask = (x == 0)
-    x = self.emb(x)
-    # x = self.dropout(x)
-    x = self.posenc(x)
-
-    return {'x': x, 'padding_mask': padding_mask}
-
 
 

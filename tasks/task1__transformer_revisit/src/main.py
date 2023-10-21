@@ -236,12 +236,19 @@ def main():
     # torch.manual_seed(0)
     epoch_time_start = time.time()
     for epoch in tqdm.tqdm(range(num_epochs)):
-      model, va_acc = train_epoch(
+      (
+        model, training_loss, training_accuracy, validation_loss,
+        validation_accuracy,
+      ) = train_epoch(
         train_dl, eval_dl, model, optimizer, criterion, device, level,
         args.mgrit,
       )
 
-      print(f'Epoch {str(epoch).zfill(2)}\tVa acc:\t{va_acc : .4f}')
+      print(f'Epoch {str(epoch).zfill(2)}' + \
+             f'\ttr_loss: {training_loss      :.4f}' + \
+             f'\ttr_acc: {training_accuracy   :.4f}' + \
+             f'\tva_loss: {validation_loss    :.4f}' + \
+             f'\tva_acc: {validation_accuracy :.4f}')
 
       epoch_time_end = time.time()
       print(f'Epoch time: {epoch_time_end - epoch_time_start} seconds')

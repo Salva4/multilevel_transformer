@@ -64,11 +64,54 @@ class Model(nn.Module):
     #   print('initializing parameters')
     #   self.init_params()
 
-  def forward(self, **state):
-    # state = {'x': x}
-    state.update(self.precontinuous_block (**state))
-    state.update(self.continuous_block    (**state))
-    state.update(self.postcontinuous_block(**state))
+  def forward(self, **state): 
+    return self.static_forward(self, **state)
+
+  @staticmethod
+  def static_forward(
+    model, input, target=None, criterion=None, compute_accuracy=False, **state
+  ):
+    if target is not None or criterion is not None:
+      assert target is not None and criterion is not None
+    if compute_accuracy: 
+      assert target is not None and isinstance(criterion, nn.CrossEntropyLoss)
+
+    state['x'] = input
+    state.update(model.precontinuous_block (**state))
+    state.update(model.continuous_block    (**state))
+    state.update(model.postcontinuous_block(**state))
+
+    if target is not None:
+      if isinstance(criterion, nn.CrossEntropyLoss):
+        logits = state['x']
+        loss = criterion(
+          logits.view(-1, logits.shape[-1]), 
+          target.view(-1),
+        )
+        state['logits'] = logits
+
+        if compute_accuracy:
+          with torch.no_grad():
+            predictions = logits.argmax(dim=-1)
+            pad_id = criterion.__dict__['ignore_index']
+            not_pad = (target != pad_id)
+            correct = ((predictions == target) * not_pad).sum().item()
+            total = not_pad.sum().item()
+
+            state['predictions'] = predictions
+            state['correct'] = correct
+            state['total'] = total
+
+      elif isinstance(criterion, nn.MSELoss):
+        output = state['x']
+        loss = criterion(logits, target)
+
+        state['output'] = output
+
+      else: raise Exception()
+
+      state['loss'] = loss
+
     return state
 
   # def init_params(self):
