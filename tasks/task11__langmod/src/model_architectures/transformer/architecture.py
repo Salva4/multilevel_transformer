@@ -6,10 +6,10 @@ import torch.nn.functional as F
 from ._utils.F_dec import F_dec
 
 class PreContinuousBlock(nn.Module):
-  def __init__(self, d_model, vocab_size, block_size, **kwargs):
+  def __init__(self, model_dimension, vocabulary_size, context_window, **kwargs):
     super().__init__()
-    self.emb = nn.Embedding(vocab_size, d_model)
-    self.posenc = nn.Embedding(block_size, d_model)
+    self.emb = nn.Embedding(vocabulary_size, model_dimension)
+    self.posenc = nn.Embedding(context_window, model_dimension)
     # self.apply(init_weights)
 
   def forward(self, x, **kwargs):
@@ -25,18 +25,20 @@ class ContinuousResidualLayer(nn.Module):
     self.F = F_dec(**kwargs)
     # self.apply(init_weights)
 
-  def forward(self, x, **kwargs): return {'x': self.F(x)}
+  def forward(self, x, **kwargs): #return {'x': self.F(x)}
+    x = self.F(x)
+    return {'x': x}
 
 class PostContinuousBlock(nn.Module):
-  def __init__(self, d_model, vocab_size, **kwargs):
+  def __init__(self, model_dimension, vocabulary_size, **kwargs):
     super().__init__()
-    self.ln = nn.LayerNorm(d_model) # final layer norm
-    self.classifier = nn.Linear(d_model, vocab_size)
+    self.ln = nn.LayerNorm(model_dimension) # final layer norm
+    self.classifier = nn.Linear(model_dimension, vocabulary_size)
     # self.apply(init_weights)
 
   def forward(self, x, **kwargs):
     x = self.ln(x) # (B,T,C)
-    x = self.classifier(x) # (B,T,vocab_size)
+    x = self.classifier(x) # (B,T,vocabulary_size)
 
     return {'x': x}
 

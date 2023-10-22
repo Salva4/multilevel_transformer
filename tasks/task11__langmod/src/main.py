@@ -12,7 +12,7 @@ from argument_parsing import parse_arguments
 from continuous_model.continuous_model import ContinuousModel
 import data
 from model.model import Model
-from utils import estimate_loss, get_batch
+from utils import estimate_loss, get_batch, train_epoch
 
 args = parse_arguments()
 
@@ -23,30 +23,27 @@ from init_weights import init_weights
 
 def main():
   # hyperparameters
-  max_iters = int(args.num_epochs)
+  num_epochs = int(args.num_epochs)
   eval_interval = 500
   learning_rate = float(args.lr)
   max_new_tokens = 500
   device = 'cuda' if torch.cuda.is_available() else 'cpu'
   print(device)
   eval_iters = 200
-  n_embd = args.model_dimension
-  n_head = args.num_heads
-  n_layer = args.N
-  T = args.T if args.T is not None else n_layer
-  dropout = 0.2
+  T = args.T if args.T is not None else args.N
+  dropout = 0.#0.2
   seed = args.seed
   # ------------
 
   if args.debug:
-    max_iters = 10#100
+    num_epochs = 10#100
     args.batch_size = 2
-    block_size = 8
+    context_window = 8
     eval_interval = 1
     eval_iters = 1
     max_new_tokens = 10
-    n_embd = 32
-    n_head = 4
+    args.model_dimension = 32
+    args.num_heads = 4
 
   print(args)
 
@@ -54,26 +51,26 @@ def main():
 
   ## DATA
   print('\n1. Loading data')
-  train_data, val_data, decode, vocab_size = data.main()
+  train_data, val_data, decode, vocabulary_size = data.main()
 
   ## MODEL
   print('\n2. Building model')
-  print(f'Building model w/ {n_layer} decoder layers')
+  print(f'Building model w/ {args.N} decoder layers')
   model_architecture_path = '.'.join(
   ['model_architectures', args.model_name, 'architecture']
   )
   model = Model(
     model_architecture_path=model_architecture_path, 
-    N=n_layer,
-    d_model=n_embd,
-    n_head=n_head,
+    N=args.N,
+    model_dimension=args.model_dimension,
+    num_heads=args.num_heads,
     dropout=dropout,
-    vocab_size=vocab_size,
-    block_size=args.max_len,
+    vocabulary_size=vocabulary_size,
+    context_window=args.context_window,
   )
   torch.manual_seed(seed)
-  model.apply(init_weights)
-  
+  # model.apply(init_weights)
+
   if args.continuous:
     print(' 2.1 Building continuous model')
     model = ContinuousModel(
@@ -86,7 +83,7 @@ def main():
 
   ## Debug: compare model weights
   # for p in m.parameters():
-  #   print(p.shape, p.ravel()[-10:])
+  #   print(p.shape, p.ravel()[:10])
   # sys.exit()
 
   # create a PyTorch optimizer
@@ -99,29 +96,27 @@ def main():
     
   torch.manual_seed(seed)
 
-  print(f'\n3. Training model w/ {n_layer} decoder layers')
-  for epoch in range(max_iters):
+  print(f'\n3. Training model w/ {args.N} decoder layers')
+  model.train()
+  for epoch in range(num_epochs+1):
+    torch.manual_seed(epoch)
+
+    if epoch > 0:
+      train_epoch(
+        model, train_data, val_data, args.context_window, args.batch_size, 
+        device, optimizer, criterion,
+      )
+
     # every once in a while evaluate the loss on train and val sets
-    if epoch % eval_interval == 0 or epoch == max_iters - 1:
-        losses = estimate_loss(
-          model, eval_iters, train_data, val_data, args.max_len, 
-          args.batch_size, device, criterion
-        )
-        print(
-          f"Epoch {epoch}: train loss {losses['train']:.4f}, " \
-        + f"val loss {losses['val']:.4f}"
-        )
-
-    batch = get_batch('train', train_data, val_data, args.max_len, args.batch_size, device)
-    input_ids, target_ids = batch
-    model_inputs = {'input': input_ids, 'target': target_ids,
-                    'criterion': criterion, 'compute_accuracy': False}
-    model_outputs = model(**model_inputs)
-    loss = model_outputs['loss']
-
-    optimizer.zero_grad(set_to_none=True)
-    loss.backward()
-    optimizer.step()
+    if epoch % eval_interval == 0 or epoch == num_epochs:
+      losses = estimate_loss(
+        model, eval_iters, train_data, val_data, args.context_window, 
+        args.batch_size, device, criterion
+      )
+      print(
+        f"Epoch {epoch}: train loss {losses['train']:.8f}, " \
+      + f"val loss {losses['val']:.8f}"
+      )
 
   print('\n4. Generating text')
   # generate from the model
@@ -130,7 +125,7 @@ def main():
     decode(
       generate(
         model=m, x=context, max_new_tokens=max_new_tokens, 
-        block_size=args.max_len,
+        context_window=args.context_window,
       )[0].tolist()
     )
   )

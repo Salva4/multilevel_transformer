@@ -12,7 +12,7 @@ def parse_arguments():
   ## Data & training
   parser.add_argument('--batch_size', type=int, default=8)#64
   parser.add_argument('--lr', type=str, default='1e-2', help='lrlvl0_lrlvl1_...')
-  parser.add_argument('--max_len', type=int, default=2048)
+  parser.add_argument('--max_length', type=int, default=2048)
   parser.add_argument('--momentum', type=str, default='.9', help='momentumlvl0_momentumlvl1_...')
   parser.add_argument('--num_epochs', type=str, default='1000000000', help='10_10_10_10_10_...')
   parser.add_argument('--optimizer', type=str, default='SGD')

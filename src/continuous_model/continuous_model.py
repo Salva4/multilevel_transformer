@@ -11,6 +11,7 @@ class ContinuousModel(nn.Module):
     print('Continuous approach')
     super().__init__()
     self.model = model
+    # self.register_buffer('model', model)
     # self.interpol = kwargs['interpol']
     print(f'''N={self.model.continuous_block.N}, T={kwargs_continuous_block['T']}''')
     print()

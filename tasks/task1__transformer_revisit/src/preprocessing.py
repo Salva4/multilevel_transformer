@@ -14,12 +14,16 @@ class Dataset(torch.utils.data.Dataset):
   def __getitem__(self, idx):
     return self.data[idx]
 
-  def create_dataset(self, filename, vocabs, attributes_input, 
+  def create_dataset(self, filename, vocabularies, attributes_input, 
                      attributes_target, batch_size, bucket_size):
     input_generator = sentences_from_conll_data(
-      filename, vocabs, attributes_input, max_sentence_length=bucket_size)
+      filename, vocabularies, attributes_input, 
+      max_sentence_length=bucket_size,
+    )
     target_generator = sentences_from_conll_data(
-      filename, vocabs, attributes_target, max_sentence_length=bucket_size)
+      filename, vocabularies, attributes_target, 
+      max_sentence_length=bucket_size,
+    )
 
     data = []
     ctr = 0

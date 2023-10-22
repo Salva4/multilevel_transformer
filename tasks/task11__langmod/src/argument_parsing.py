@@ -7,12 +7,12 @@ def parse_arguments():
   parser.add_argument('--debug', action='store_true')
   parser.add_argument('--models_dir', type=str, default=None)
   parser.add_argument('--output_fn', type=str, default=None)
-  parser.add_argument('--seed', type=int, default=1337)
+  parser.add_argument('--seed', type=int, default=0)#1337)
 
   ## Data & training
   parser.add_argument('--batch_size', type=int, default=64)
   parser.add_argument('--lr', type=str, default='3e-4', help='lrlvl0_lrlvl1_...')
-  parser.add_argument('--max_len', type=int, default=256)
+  parser.add_argument('--context_window', type=int, default=256)
   parser.add_argument('--num_epochs', type=str, default='5000', help='10_10_10_10_10_...')
 
   ## Model

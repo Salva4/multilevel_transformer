@@ -3,8 +3,9 @@ import torch.nn as nn
 from ._utils.positional_encoding import TorchPositionalEncoding
 
 class PreContinuousBlock(nn.Module):
-  def __init__(self, model_dimension, **kwargs):
+  def __init__(self, vocabulary_size, model_dimension, **kwargs):
     super().__init__()#**kwargs)
+    self.Σ_size = vocabulary_size
     self.d = model_dimension
 
     self.emb = nn.Embedding(15514, self.d)
@@ -59,11 +60,12 @@ class ContinuousResidualLayer(nn.Module):
     return {'x': x}
 
 class PostContinuousBlock(nn.Module):
-  def __init__(self, model_dimension, **kwargs):
+  def __init__(self, model_dimension, num_classes, **kwargs):
     super().__init__()#**kwargs)
     self.d = model_dimension
+    self.m = num_classes
 
-    self.fc3 = nn.Linear(self.d, 49)
+    self.fc3 = nn.Linear(self.d, self.m)
     self.ln3 = nn.LayerNorm(self.d)
 
   def forward(self, x, **kwargs):

@@ -19,10 +19,10 @@ from training import train_epoch
 
 # torch.set_default_dtype(torch.float64)
 
-DATA_PATH_TRAIN = '../data/en_gum-ud-train.conllu.txt'#'/users/msalvado/MLT/ML_PQ/data/en_gum-ud-train.conllu.txt'
-DATA_PATH_DEV = '../data/en_gum-ud-dev.conllu.txt'#'/users/msalvado/MLT/ML_PQ/data/en_gum-ud-dev.conllu.txt'
-DATA_PATH_TRAIN_DEBUG = '../data/en_gum-ud-train.conllu_debug.txt'
-DATA_PATH_DEV_DEBUG = '../data/en_gum-ud-dev.conllu_debug.txt'
+TRAINING_DATA_PATH = '../data/en_gum-ud-train.conllu.txt'#'/users/msalvado/MLT/ML_PQ/data/en_gum-ud-train.conllu.txt'
+VALIDATION_DATA_PATH = '../data/en_gum-ud-dev.conllu.txt'#'/users/msalvado/MLT/ML_PQ/data/en_gum-ud-dev.conllu.txt'
+TRAINING_DATA_PATH_DEBUG = '../data/en_gum-ud-train.conllu_debug.txt'
+VALIDATION_DATA_PATH_DEBUG = '../data/en_gum-ud-dev.conllu_debug.txt'
 
 args = parse_arguments()
 # args.model_dimension = 8
@@ -53,7 +53,8 @@ def assert_arguments(args):
     if num_levels > 1:
       assert args.N // args.coarsening_factor ** (num_levels - 1) >  0 and \
              args.N %  args.coarsening_factor ** (num_levels - 1) == 0
-    assert len(args.levels_scheme.split('_')) == len(args.num_epochs.split('_'))
+    assert len(args.levels_scheme.split('_')) == \
+           len(args.num_epochs   .split('_'))
 
   ## MGRIT, MGOPT, ...
   # assert not (args.mgrit and args.mgopt)
@@ -62,43 +63,53 @@ def assert_arguments(args):
   # assert args.N%(2**(args.n_lvls - 1)) == 0
 
 def obtain_ds_dl():
-  train = DATA_PATH_TRAIN if not args.debug else DATA_PATH_TRAIN_DEBUG
-  dev = DATA_PATH_DEV if not args.debug else DATA_PATH_DEV_DEBUG
-  print('train', train, 'dev', dev)
+  training_data_path   = TRAINING_DATA_PATH   if not args.debug else \
+                         TRAINING_DATA_PATH_DEBUG
+  validation_data_path = VALIDATION_DATA_PATH if not args.debug else \
+                         VALIDATION_DATA_PATH_DEBUG
+  print(
+    'training_data_path'  , training_data_path, 
+    'validation_data_path', validation_data_path,
+  )
 
-  vocabs = input_pipeline.create_vocabs(train)
+  vocabularies = input_pipeline.create_vocabularies(training_data_path)
+  vocabulary_size = len(vocabularies['forms'])
+  num_classes = len(vocabularies['xpos'])
 
   attributes_input = [input_pipeline.CoNLLAttributes.FORM]
   attributes_target = [input_pipeline.CoNLLAttributes.XPOS]
 
-  train_ds, train_dl = preprocessing.obtain_dataset(
-    filename=train, 
-    vocabs=vocabs, 
+  training_dataset, training_dataloader = preprocessing.obtain_dataset(
+    filename=training_data_path, 
+    vocabularies=vocabularies, 
     attributes_input=attributes_input, 
     attributes_target=attributes_target,
     batch_size=args.batch_size, 
-    bucket_size=args.max_len,
+    bucket_size=args.max_length,
     seed=0,
   )
-  eval_ds, eval_dl = preprocessing.obtain_dataset(
-    filename=dev, 
-    vocabs=vocabs, 
+  validation_dataset, validation_dataloader = preprocessing.obtain_dataset(
+    filename=validation_data_path, 
+    vocabularies=vocabularies, 
     attributes_input=attributes_input, 
     attributes_target=attributes_target,
     batch_size=args.batch_size,#187, 
-    bucket_size=args.max_len,
+    bucket_size=args.max_length,
     seed=0,
   )
 
-  return train_ds, eval_ds, train_dl, eval_dl
+  return (
+    training_dataset, validation_dataset, training_dataloader, 
+    validation_dataloader, vocabulary_size, num_classes,
+  )
 
 def main():
   ## args managing ####################
   if args.debug:
     args.batch_size = 2
-    args.continuous = True
-    args.max_len = 10
-    args.N = 16#8#2
+    # args.continuous = True
+    args.max_length = 10
+    args.N = 8#2
 
   assert_arguments(args)
 
@@ -120,7 +131,10 @@ def main():
 
   ## DS
   print('1. Obtaining datasets and dataloaders')
-  train_ds, eval_ds, train_dl, eval_dl = tqdm.tqdm(obtain_ds_dl())
+  (
+    training_dataset, validation_dataset, training_dataloader, 
+    validation_dataloader, vocabulary_size, num_classes,
+  ) = tqdm.tqdm(obtain_ds_dl())
   print()
 
   ############## ML weights initialization  
@@ -184,7 +198,8 @@ def main():
     ['model_architectures', args.model_name, 'architecture']
   )
   model = Model(
-    model_architecture_path=model_architecture_path, **args.__dict__#N=args.N,
+    model_architecture_path=model_architecture_path, 
+    vocabulary_size=vocabulary_size, num_classes=num_classes, **args.__dict__,
   ).to(device)
   
   # for p in model.parameters():
@@ -193,10 +208,7 @@ def main():
 
   if args.continuous:
     num_levels = len(args.lr.split('_'))
-    model = ContinuousModel(
-      model=model, T=args.T, solver=args.solver, 
-      coarsening_factor=args.coarsening_factor, #num_levels=num_levels,
-    )
+    model = ContinuousModel(model=model, **args.__dict__)#.to(device)
 
   # optimizer = (torch.optim.Adam if args.optimizer == 'Adam' else torch.optim.SGD)(model.parameters(), lr=args.lr)
   if args.optimizer == 'Adam':
@@ -232,44 +244,58 @@ def main():
     for g in optimizer.param_groups: g['momentum'] = momentum
 
   model.train()
-  batch = next(iter(train_dl))
-  inputs, targets = batch
-  inputs, targets = inputs.to(device), targets.to(device)
+  batch = next(iter(training_dataloader))
+  input_ids, target_ids = batch
+  input_ids, target_ids = input_ids.to(device), target_ids.to(device)
+
+  model_inputs = {
+      'input': input_ids, 'target': target_ids, 'criterion': criterion, 
+      'compute_accuracy': True,
+    }
+  model_inputs_conv  = model_inputs.copy()
+  model_inputs_mgrit = model_inputs.copy()
 
   ## Conventional
-  model_inputs = {'x': inputs, 'level': level}
+  model_inputs_conv.update({'level': level})
   t0_conv = time.time()
   with torch.no_grad():
-    outputs = model(**model_inputs)['x']#.cpu() 2/2
+    model_outputs_conv = model(**model_inputs_conv)
   t_conv = time.time() - t0_conv
 
   ## MGRIT
-  model_inputs_mgrit = {'x': inputs, 'relaxation': 'F', 'num_levels': 2, 
-                  'num_iterations': 3, 'MGRIT': True}
+  model_inputs_mgrit.update({
+    'MGRIT': True, 'num_iterations': 3, 'num_levels': 2, 'relaxation': 'F',
+  })
   t0_mgrit = time.time()
-  outputs_mgrit = model(**model_inputs_mgrit)['x'][-1]#.cpu() 2/2
+  with torch.no_grad():
+    model_outputs_mgrit = model(**model_inputs_mgrit)
   t_mgrit = time.time() - t0_mgrit
 
   # print('  conv' , outputs      .ravel()[-10])
   # print('  mgrit', outputs_mgrit.ravel()[-10])
 
-  loss = criterion(
-    outputs.reshape(-1, outputs.shape[-1]), 
-    targets.reshape(-1)
-  )
-  loss_mgrit = criterion(
-    outputs_mgrit.reshape(-1, outputs_mgrit.shape[-1]), 
-    targets.reshape(-1)
-  )
+  loss_conv = model_outputs_conv['loss']
+  correct, total = model_outputs_conv['correct'], model_outputs_conv['total']
+  accuracy_conv = correct/total
+
+  loss_mgrit = model_outputs_mgrit['loss']
+  correct, total = model_outputs_mgrit['correct'], \
+                   model_outputs_mgrit['total']
+  accuracy_mgrit = correct/total
 
   print()
   print('loss:')
-  print('  conv ' , loss      .item())
+  print('  conv ', loss_conv .item())
   print('  mgrit', loss_mgrit.item())
 
   print()
+  print('accuracy:')
+  print('  conv ', accuracy_conv )
+  print('  mgrit', accuracy_mgrit)
+
+  print()
   print('time:')
-  print('  conv ' , t_conv )
+  print('  conv ', t_conv )
   print('  mgrit', t_mgrit)
 
   ########################################

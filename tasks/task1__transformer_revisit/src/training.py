@@ -18,8 +18,8 @@ color = lambda z, col: print(z)
 
 ############### ML Weight initialization
 # def train(
-#   train_dl,
-#   eval_dl,
+#   training_dataloader,
+#   validation_dataloader,
 #   model, 
 #   optimizer, 
 #   criterion,
@@ -37,7 +37,7 @@ color = lambda z, col: print(z)
 #   batch_ctr = 0
 
 #   model.train()
-#   for i, batch in enumerate(train_dl):
+#   for i, batch in enumerate(training_dataloader):
 #     inputs, targets = batch
 #     # inputs, targets = inputs.long(), targets.long()
 #     inputs, targets = inputs.to(device), targets.to(device)
@@ -61,7 +61,7 @@ color = lambda z, col: print(z)
 #           ).sum()/(targets != PAD_ID).sum()
 
 #         ## Validation accuracy
-#         eval_iter = iter(eval_dl)
+#         eval_iter = iter(validation_dataloader)
 #         batch = next(eval_iter, None)
 #         va_accuracy = []
 #         while batch != None:
@@ -107,7 +107,7 @@ color = lambda z, col: print(z)
 #   return model
 ########################################
 
-# def monitor_accs(eval_dl, model, device, inputs_tr, targets_tr, batch_ctr):
+# def monitor_accs(validation_dataloader, model, device, inputs_tr, targets_tr, batch_ctr):
 #   model.eval()
 
 #   with torch.no_grad():
@@ -119,7 +119,7 @@ color = lambda z, col: print(z)
 #     ).sum() / (targets_tr != PAD_ID).sum()
 
 #     ## Validation accuracy
-#     eval_iter = iter(eval_dl)
+#     eval_iter = iter(validation_dataloader)
 #     batch = next(eval_iter, None)
 #     va_correct, va_total = 0, 0
 #     while batch != None:
@@ -152,11 +152,10 @@ color = lambda z, col: print(z)
 
 #   model.train()
 
-
 ################################# MG/OPT
 # def train_MGOPT(
-#   train_dl,
-#   eval_dl,
+#   training_dataloader,
+#   validation_dataloader,
 #   models, 
 #   optimizers, 
 #   criterion,
@@ -198,7 +197,7 @@ color = lambda z, col: print(z)
 #   ## Execution
 #   if not avoid_MGOPT:
 #     print('Performing MGOPT')
-#     for i, batch in tqdm.tqdm(enumerate(train_dl)):
+#     for i, batch in tqdm.tqdm(enumerate(training_dataloader)):
 #       inputs, targets = batch
 #       # inputs, targets = inputs.long(), targets.long()
 #       inputs, targets = inputs.to(device), targets.to(device)#targets?
@@ -212,7 +211,7 @@ color = lambda z, col: print(z)
 # 
 #       if i%n_monitoring == 0:
 #         ## Monitoring
-#         monitor_accs(eval_dl, model, device, inputs, targets, batch_ctr)
+#         monitor_accs(validation_dataloader, model, device, inputs, targets, batch_ctr)
 # 
 #       batch_ctr += 1
 #       # if batch_ctr == batch_epochs:
@@ -227,7 +226,7 @@ color = lambda z, col: print(z)
 #     model = models[-1]
 #     optimizer = optimizers[-1]
 #     model.train()
-#     for i, batch in tqdm.tqdm(enumerate(train_dl)):
+#     for i, batch in tqdm.tqdm(enumerate(training_dataloader)):
 #       inputs, targets = batch
 #       # inputs, targets = inputs.long(), targets.long()
 #       inputs, targets = inputs.to(device), targets.to(device)#targets?
@@ -243,7 +242,7 @@ color = lambda z, col: print(z)
 # 
 #       if i%n_monitoring == 0:
 #         ## Monitoring
-#         monitor_accs(eval_dl, model, device, inputs, targets, batch_ctr)
+#         monitor_accs(validation_dataloader, model, device, inputs, targets, batch_ctr)
 # 
 #       batch_ctr += 1
 #       # if batch_ctr == batch_epochs:
@@ -257,16 +256,16 @@ color = lambda z, col: print(z)
 #   return model
 ########################################
 
-
 ############### Conventional training
 def train_epoch(
-  train_dl, eval_dl, model, optimizer, criterion, device, level, mgrit,
+  training_dataloader, validation_dataloader, model, optimizer, criterion, 
+  device, level, mgrit,
 ):
   ## Training
   model.train()
-  losses = np.empty(shape=(len(train_dl)))
+  losses = np.empty(shape=(len(training_dataloader)))
   correct, total = 0, 0
-  for i, batch in enumerate(train_dl):
+  for i, batch in enumerate(training_dataloader):
     input_ids, target_ids = batch
     # inputs, targets = inputs.long(), targets.long()
     input_ids, target_ids = input_ids.to(device), target_ids.to(device)
@@ -283,12 +282,12 @@ def train_epoch(
       'MGRIT': True, 'relaxation': 'F', 'num_levels': 2, 'num_iterations': 2
     })
 
-    outputs = model(**model_inputs)#.cpu() 2/2
-    # print(outputs.ravel()[-10])
-    loss = outputs['loss']
+    model_outputs = model(**model_inputs)#.cpu() 2/2
+    # print(model_outputs.ravel()[-10])
+    loss = model_outputs['loss']
     losses[i] = loss.item()
-    correct += outputs['correct']
-    total += outputs['total']
+    correct += model_outputs['correct']
+    total += model_outputs['total']
 
     optimizer.zero_grad()
     loss.backward()
@@ -300,9 +299,9 @@ def train_epoch(
   ## Evaluation
   model.eval()
   with torch.no_grad():
-    losses = np.empty(shape=(len(eval_dl)))
+    losses = np.empty(shape=(len(validation_dataloader)))
     correct, total = 0, 0
-    for i, batch in enumerate(eval_dl):
+    for i, batch in enumerate(validation_dataloader):
       input_ids, target_ids = batch
       input_ids, target_ids = input_ids.to(device), target_ids.to(device)
 
@@ -317,11 +316,11 @@ def train_epoch(
         'MGRIT': True, 'relaxation': 'F', 'num_levels': 2, 'num_iterations': 2
       })
 
-      outputs = model(**model_inputs)
-      loss = outputs['loss']
+      model_outputs = model(**model_inputs)
+      loss = model_outputs['loss']
       losses[i] = loss.item()
-      correct += outputs['correct']
-      total += outputs['total']
+      correct += model_outputs['correct']
+      total += model_outputs['total']
 
   ## Validation data: 5x187 + 182
   validation_loss = losses.mean()

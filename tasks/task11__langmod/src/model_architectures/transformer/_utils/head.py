@@ -3,14 +3,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Head(nn.Module):
-  def __init__(self, head_size, d_model, block_size, dropout):
+  def __init__(self, head_size, model_dimension, context_window, dropout):
     super().__init__()
-    self.key   = nn.Linear(d_model, head_size, bias=False)
-    self.query = nn.Linear(d_model, head_size, bias=False)
-    self.value = nn.Linear(d_model, head_size, bias=False)
-    self.register_buffer('tril', torch.tril(torch.ones(block_size, 
-                                                     block_size)))
-
+    self.key   = nn.Linear(model_dimension, head_size, bias=False)
+    self.query = nn.Linear(model_dimension, head_size, bias=False)
+    self.value = nn.Linear(model_dimension, head_size, bias=False)
+    self.register_buffer(
+        'tril', torch.tril(torch.ones(context_window, context_window))
+    )
     self.dropout = nn.Dropout(dropout)
 
   def forward(self, x):

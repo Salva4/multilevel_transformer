@@ -1,9 +1,9 @@
 import torch
 import torch.nn.functional as F
 
-def generate(model, x, max_new_tokens, block_size, **kwargs):
+def generate(model, x, max_new_tokens, context_window, **kwargs):
   for _ in range(max_new_tokens):
-    x_cond = x[:, -block_size:]
+    x_cond = x[:, -context_window:]
     model_inputs = {'input': x_cond}
     model_outputs = model(**model_inputs)
     logits = model_outputs['x']

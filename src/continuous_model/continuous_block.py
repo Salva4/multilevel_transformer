@@ -9,7 +9,7 @@ from ode_solvers.ode_solvers import Φ_ForwardEuler, Φ_Heun, Φ_RK4
 from mgrit.mgrit import MGRIT_fwd
 
 class ContinuousBlock(nn.Module):
-  def __init__(self, ψ, Nf, T, solver, coarsening_factor=2):#, num_levels):#, interpol):
+  def __init__(self, ψ, Nf, T, solver, coarsening_factor=2, **kwargs):#, num_levels):#, interpol):
     super().__init__()
     self.Nf = Nf
     self.T = T
@@ -30,21 +30,26 @@ class ContinuousBlock(nn.Module):
     if self.solver == 'Forward Euler':
       self.Φ = Φ_ForwardEuler
       for i in range(self.Nf):
-        self.ψ.append(copy.deepcopy(ψ[i]))  # basis functions
+        self.ψ.append(#copy.deepcopy(
+                      ψ[i])#)  # basis functions
 
     elif self.solver == 'Heun': 
       self.Φ = Φ_Heun
       for i in range(self.Nf):
-        self.ψ.append(copy.deepcopy(ψ[i]))
+        self.ψ.append(#copy.deepcopy(
+                      ψ[i])#)
 
-      self.ψ.append(copy.deepcopy(ψ[-1]))
+      self.ψ.append(#copy.deepcopy(
+                    ψ[-1])#)
 
     elif self.solver == 'RK4':
       self.Φ = Φ_RK4
       for i in range(self.Nf):
-        for _ in range(2): self.ψ.append(copy.deepcopy(ψ[i]))
+        for _ in range(2): self.ψ.append(#copy.deepcopy(
+                                         ψ[i])#)
 
-      self.ψ.append(copy.deepcopy(ψ[-1]))
+      self.ψ.append(#copy.deepcopy(
+                    ψ[-1])#)
 
     # self.dt = T/N
 
@@ -56,12 +61,12 @@ class ContinuousBlock(nn.Module):
     #   'ln2.weight', 'ln2.bias'
     # ]
 
-  def forward(self, x, MGRIT=False, MGOPT=False, **kwargs):
+  def forward(self, x, level=0, MGRIT=False, MGOPT=False, **kwargs):
     assert MGRIT + MGOPT <= 1
 
-    if not MGRIT and not MGOPT:
-      level = kwargs.get('level', 0)
+    output = {}
 
+    if not MGRIT and not MGOPT:
       N = self.Ns[level]
       T = self.T
       c = self.c
@@ -72,15 +77,19 @@ class ContinuousBlock(nn.Module):
       for i in range(N):
         x = self.Φ(F=ψ, i=i, x=x, dt=dt, **kwargs)
 
-    elif MGRIT: 
-      with torch.no_grad():
-        u = MGRIT_fwd(u0=x, Ns=self.Ns, T=self.T, c=self.c, Φ=self.Φ, Ψ=self.ψ, **kwargs)
-      x = u#[-1]
+    elif MGRIT:
+      N, NΔ = self.Ns[level : level+2]
+      u = MGRIT_fwd(u0=x, N=N, T=self.T, c=self.c, Φ=self.Φ, Ψ=self.ψ, 
+                    **kwargs)
+      x = u[-1]
+      output['states'] = u
 
     elif MGOPT:
       x = MGOPT_fwd(x, **kwargs)
 
-    return {'x': x}
+    output['x'] = x
+
+    return output
 
   # def init_weights_from_model(self, old_model):
   #   self.interpolate_weights_from(old_model)

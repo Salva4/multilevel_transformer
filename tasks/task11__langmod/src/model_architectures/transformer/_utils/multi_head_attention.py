@@ -4,11 +4,15 @@ import torch.nn as nn
 from .head import Head
 
 class MultiHeadAttention(nn.Module):
-  def __init__(self, num_heads, head_size, d_model, block_size, dropout):
+  def __init__(
+    self, num_heads, head_size, model_dimension, context_window, dropout
+  ):
     super().__init__()
-    self.heads = nn.ModuleList([Head(head_size, d_model, block_size, 
-                   dropout) for _ in range(num_heads)])
-    self.proj = nn.Linear(head_size * num_heads, d_model)
+    self.heads = nn.ModuleList([
+      Head(head_size, model_dimension, context_window, dropout) \
+      for _ in range(num_heads)
+    ])
+    self.proj = nn.Linear(head_size * num_heads, model_dimension)
     self.dropout = nn.Dropout(dropout)
 
   def forward(self, x):

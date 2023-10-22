@@ -42,23 +42,20 @@ class Model(nn.Module):
     # if seed_precontinuous_block is not None: 
     #   torch.manual_seed(seed_precontinuous_block)
     torch.manual_seed(0)
-    self.precontinuous_block  = architecture_module.PreContinuousBlock(
+    self.precontinuous_block = architecture_module.PreContinuousBlock(
       **kwargs
     )
-
     self.continuous_block = ContinuousBlock(
       ResidualLayer=architecture_module.ContinuousResidualLayer,
       N=N,
       **kwargs,
     )
-
     # if seed_postcontinuous_block is not None:
     #   torch.manual_seed(seed_postcontinuous_block)
     torch.manual_seed(0)
     self.postcontinuous_block = architecture_module.PostContinuousBlock(
       **kwargs
     )
-
     ## Continuous block
     # if init_method.lower() != 'none':
     #   print('initializing parameters')
@@ -69,7 +66,7 @@ class Model(nn.Module):
 
   @staticmethod
   def static_forward(
-    model, input, target=None, criterion=None, compute_accuracy=False, **state
+    model, input, target=None, criterion=None, compute_accuracy=False, **state,
   ):
     if target is not None or criterion is not None:
       assert target is not None and criterion is not None

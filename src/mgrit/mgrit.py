@@ -40,11 +40,11 @@ def interpolate_u(u, eΔ, NΔ, c):
     u[c*i] += eΔ[i]
 
 def MGRIT_fwd(
-    u0, Ns, T, c, Φ, Ψ, relaxation, num_levels, num_iterations, **kwargs
+    u0, N, T, c, Φ, Ψ, relaxation, num_levels, num_iterations, **kwargs
   ):
   ''' MGRIT implementation with only 2 levels '''
 
-  N, NΔ = Ns[:2]
+  NΔ = N//c
   h, hΔ = T/N, T/NΔ
   ψ, ψΔ = Ψ, Ψ[::c]
 

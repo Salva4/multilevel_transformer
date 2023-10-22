@@ -51,7 +51,7 @@ class CoNLLAttributes(enum.Enum):
   DEPREL = 7
 
 
-def create_vocabs(filename, max_num_forms=100000):
+def create_vocabularies(filename, max_num_forms=100000):
   """Loads corpus and create vocabulary lists.
   Args:
     filename: file name of a corpus.
@@ -72,22 +72,22 @@ def create_vocabs(filename, max_num_forms=100000):
 
   special_tokens = {PAD: PAD_ID, UNKNOWN: UNKNOWN_ID, ROOT: ROOT_ID}
 
-  # create word form vocab
-  vocabs = {'forms': {}, 'xpos': {}}
-  vocabs['forms'].update(special_tokens)
-  vocabs['forms'].update({
+  # create word form vocabulary
+  vocabularies = {'forms': {}, 'xpos': {}}
+  vocabularies['forms'].update(special_tokens)
+  vocabularies['forms'].update({
       form[0]: id for id, form in enumerate(
           form_counter.most_common(max_num_forms), start=ROOT_ID + 1)
   })
 
   # create xpos vocab
-  vocabs['xpos'].update(special_tokens)
-  vocabs['xpos'].update({
+  vocabularies['xpos'].update(special_tokens)
+  vocabularies['xpos'].update({
       tag[0]: id
       for id, tag in enumerate(xpos_counter.most_common(), start=ROOT_ID + 1)
   })
 
-  return vocabs
+  return vocabularies
 
 
 def create_token(token, attributes, vocabs):

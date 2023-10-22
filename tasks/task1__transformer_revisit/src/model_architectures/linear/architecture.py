@@ -17,9 +17,8 @@ import torch.nn as nn
 #     return x
 
 class ContinuousResidualLayer(nn.Module):
-  def __init__(self, seed=None):
+  def __init__(self):
     super().__init__()
-    if seed is not None: torch.manual_seed(seed)
     self.fc1 = nn.Linear(256, 256)
 
   def forward(self, x, **kwargs):
@@ -28,9 +27,8 @@ class ContinuousResidualLayer(nn.Module):
     return {'x': x}
 
 class PostContinuousBlock(nn.Module):
-  def __init__(self, seed=None):
+  def __init__(self):
     super().__init__()
-    if seed is not None: torch.manual_seed(seed)
     self.fc2 = nn.Linear(256, 49)
 
   def forward(self, x, **kwargs):
@@ -39,9 +37,8 @@ class PostContinuousBlock(nn.Module):
     return {'x': x}
 
 class PreContinuousBlock(nn.Module):
-  def __init__(self, seed=None):
+  def __init__(self):
     super().__init__()
-    if seed is not None: torch.manual_seed(seed)
     self.emb = nn.Embedding(15514, 256)
 
   def forward(self, x, **kwargs): 
