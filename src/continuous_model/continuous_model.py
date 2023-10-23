@@ -42,7 +42,12 @@ class ContinuousModel(nn.Module):
     # state.update(self.postcontinuous_block(**state))
     # return state
     return self.model.static_forward(self, **state)
-    
+
+  def save(**kwargs): 
+    '''Arguments: fn_without_extension=None, models_dir=None, optimizer=None, 
+                  **other''' 
+    self.model.static_save(self, **kwargs)
+
   # def init_params(self):
   #   self.apply(self._init_layers)
 

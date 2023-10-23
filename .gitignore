@@ -3,6 +3,8 @@
 *pycache*
 *.zip
 ._*
-data*
+# data*
 outputs*
 experiments*
+*.x
+*.y
