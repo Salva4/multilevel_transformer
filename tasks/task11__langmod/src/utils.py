@@ -44,7 +44,7 @@ def estimate_loss(
 
   return out
 
-def train_epoch(
+def train_batch(
   model, train_data, val_data, context_window, batch_size, device, optimizer, 
   criterion,
 ):

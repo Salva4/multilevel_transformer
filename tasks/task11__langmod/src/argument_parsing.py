@@ -13,13 +13,16 @@ def parse_arguments():
   parser.add_argument('--batch_size', type=int, default=64)
   parser.add_argument('--lr', type=str, default='3e-4', help='lrlvl0_lrlvl1_...')
   parser.add_argument('--context_window', type=int, default=256)
+  parser.add_argument('--input_text', type=str, default='shakespeare')
   parser.add_argument('--num_epochs', type=str, default='5000', help='10_10_10_10_10_...')
+  parser.add_argument('--tokenization', type=str, default='gpt2', help='character|gpt2')
 
   ## Model
+  parser.add_argument('--generate', action='store_true')
   parser.add_argument('--model_dimension', type=int, default=384)
   parser.add_argument('--model_name', type=str, default='transformer') # Linear, Transformer
-  parser.add_argument('--num_heads', type=int, default=6)
   parser.add_argument('--N', type=int, default=6)
+  parser.add_argument('--num_heads', type=int, default=6)
 
   ## Continuous model
   parser.add_argument('--coarsening_factor', type=int, default=2)

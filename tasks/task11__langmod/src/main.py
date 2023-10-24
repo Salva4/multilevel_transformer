@@ -1,6 +1,8 @@
 ## Taken from Karpathy's github: [url]
 
 import argparse
+import os
+import time
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -12,7 +14,7 @@ from argument_parsing import parse_arguments
 from continuous_model.continuous_model import ContinuousModel
 import data
 from model.model import Model
-from utils import estimate_loss, get_batch, train_epoch
+from utils import estimate_loss, get_batch, train_batch
 
 args = parse_arguments()
 
@@ -21,9 +23,11 @@ sys.path.append(f'model_architectures/{args.model_name}/methods/')
 from generate import generate
 from init_weights import init_weights
 
+DATA_DIR = os.path.join('..', 'data')
+
 def main():
   # hyperparameters
-  num_epochs = int(args.num_epochs)
+  num_batch_passes = int(args.num_epochs)
   eval_interval = 500
   learning_rate = float(args.lr)
   max_new_tokens = 500
@@ -36,7 +40,7 @@ def main():
   # ------------
 
   if args.debug:
-    num_epochs = 10#100
+    num_batch_passes = 10#100
     args.batch_size = 2
     context_window = 8
     eval_interval = 1
@@ -51,7 +55,10 @@ def main():
 
   ## DATA
   print('\n1. Loading data')
-  train_data, val_data, decode, vocabulary_size = data.main()
+  # train_data, val_data, decode, vocabulary_size = \
+  #   data.tokenize_data_at_character_level(DATA_PATH)
+  train_data, val_data, decode, vocabulary_size = \
+    data.obtain_data(DATA_DIR, args.input_text, args.tokenization)
 
   ## MODEL
   print('\n2. Building model')
@@ -98,38 +105,44 @@ def main():
 
   print(f'\n3. Training model w/ {args.N} decoder layers')
   model.train()
-  for epoch in range(num_epochs+1):
-    torch.manual_seed(epoch)
+  for batch_idx in range(num_batch_passes+1):
+    batch_start_time = time.time()
 
-    if epoch > 0:
-      train_epoch(
+    torch.manual_seed(batch_idx)
+
+    if batch_idx > 0:
+      train_batch(
         model, train_data, val_data, args.context_window, args.batch_size, 
         device, optimizer, criterion,
       )
 
+    batch_end_time = time.time()
+    print(f'Batch training time: {batch_end_time - batch_start_time :.2f} seconds')
+
     # every once in a while evaluate the loss on train and val sets
-    if epoch % eval_interval == 0 or epoch == num_epochs:
+    if batch_idx % eval_interval == 0 or batch_idx == num_batch_passes:
       losses = estimate_loss(
         model, eval_iters, train_data, val_data, args.context_window, 
         args.batch_size, device, criterion
       )
       print(
-        f"Epoch {epoch}: train loss {losses['train']:.8f}, " \
+        f"Batch {batch_idx}: train loss {losses['train']:.8f}, " \
       + f"val loss {losses['val']:.8f}"
       )
 
-  print('\n4. Generating text')
-  # generate from the model
-  context = torch.zeros((1, 1), dtype=torch.long, device=device)
-  print(
-    decode(
-      generate(
-        model=m, x=context, max_new_tokens=max_new_tokens, 
-        context_window=args.context_window,
-      )[0].tolist()
+  if args.generate:
+    print('\n4. Generating text')
+    # generate from the model
+    context = torch.zeros((1, 1), dtype=torch.long, device=device)
+    print(
+      decode(
+        generate(
+          model=m, x=context, max_new_tokens=max_new_tokens, 
+          context_window=args.context_window,
+        )[0].tolist()
+      )
     )
-  )
-  #open('../data/more.txt', 'w').write(decode(m.generate(context, max_new_tokens=10000)[0].tolist()))
+    #open('../data/more.txt', 'w').write(decode(m.generate(context, max_new_tokens=10000)[0].tolist()))
 
 if __name__ == '__main__':
   main()
