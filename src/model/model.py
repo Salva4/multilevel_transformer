@@ -113,7 +113,7 @@ class Model(nn.Module):
 
     return state
 
-  def save(**kwargs): 
+  def save(self, **kwargs): 
     '''Arguments: fn_without_extension=None, models_dir=None, optimizer=None, 
                   **other''' 
     self.static_save(self, **kwargs)

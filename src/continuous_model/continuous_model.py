@@ -43,7 +43,7 @@ class ContinuousModel(nn.Module):
     # return state
     return self.model.static_forward(self, **state)
 
-  def save(**kwargs): 
+  def save(self, **kwargs): 
     '''Arguments: fn_without_extension=None, models_dir=None, optimizer=None, 
                   **other''' 
     self.model.static_save(self, **kwargs)

@@ -64,7 +64,7 @@ def main():
   print('\n2. Building model')
   print(f'Building model w/ {args.N} decoder layers')
   model_architecture_path = '.'.join(
-  ['model_architectures', args.model_name, 'architecture']
+    ['model_architectures', args.model_name, 'architecture']
   )
   model = Model(
     model_architecture_path=model_architecture_path, 
@@ -80,9 +80,7 @@ def main():
 
   if args.continuous:
     print(' 2.1 Building continuous model')
-    model = ContinuousModel(
-      model=model, T=T, solver=args.solver,
-    )
+    model = ContinuousModel(model=model, T=T, solver=args.solver)
 
   m = model.to(device)
   # print the number of parameters in the model
@@ -106,7 +104,7 @@ def main():
   print(f'\n3. Training model w/ {args.N} decoder layers')
   model.train()
   for batch_idx in range(num_batch_passes+1):
-    batch_start_time = time.time()
+    # batch_start_time = time.time()
 
     torch.manual_seed(batch_idx)
 
@@ -116,8 +114,40 @@ def main():
         device, optimizer, criterion,
       )
 
-    batch_end_time = time.time()
-    print(f'Batch training time: {batch_end_time - batch_start_time :.2f} seconds')
+    # batch_end_time = time.time()
+    # print(f'Batch training time: {batch_end_time - batch_start_time :.2f} seconds')
+
+    if args.save:
+      # fn_without_extension = '_'.join([
+      #   f'{k}{args.__dict__[k]}'.replace(' ', '_') \
+      #   for k in sorted(args.__dict__.keys())
+      # ]) # str(args)
+      fn_without_extension = ''
+      for (k, v) in sorted(args.__dict__.items()):
+        if v is None: continue
+        if k == 'batch_size': k = 'bs'
+        if k == 'coarsening_factor': k = 'cf'
+        if k == 'context_window': k = 'L'
+        if k == 'continuous': k = 'cont'
+        if v == False: v = 'F'
+        if v == True: v = 'T'
+        if k == 'input_text': k = 'text'
+        if v == 'shakespeare': v = 'shak'
+        if v == 'wikipedia': k = 'wiki'
+        if k == 'levels_scheme': k = 'scheme'
+        if k == 'save': continue
+        if k == 'model_dimension': k = 'd'
+        if k == 'model_name': k = ''
+        if k == 'num_epochs': k = 'epochs'
+        if k == 'num_heads': k = 'H'
+        if v == 'Forward Euler': v = 'FE'
+        if k == 'tokenization': k = 'tok'
+        if v == 'character': v = 'char'
+        fn_without_extension += f'_{k}{v}'
+      fn_without_extension = fn_without_extension[1:]
+      model.save(
+        fn_without_extension=fn_without_extension, optimizer=optimizer,
+      )
 
     # every once in a while evaluate the loss on train and val sets
     if batch_idx % eval_interval == 0 or batch_idx == num_batch_passes:
@@ -126,8 +156,8 @@ def main():
         args.batch_size, device, criterion
       )
       print(
-        f"Batch {batch_idx}: train loss {losses['train']:.8f}, " \
-      + f"val loss {losses['val']:.8f}"
+        f"Batch {batch_idx}: train loss {losses['train'] :.8f}, " \
+      + f"val loss {losses['val'] :.8f}"
       )
 
   if args.generate:

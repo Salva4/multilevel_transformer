@@ -3,12 +3,6 @@ import argparse
 def parse_arguments():
   parser = argparse.ArgumentParser()
 
-  ## Debugging, seed and saving
-  parser.add_argument('--debug', action='store_true')
-  parser.add_argument('--models_dir', type=str, default=None)
-  parser.add_argument('--output_fn', type=str, default=None)
-  parser.add_argument('--seed', type=int, default=0)#1337)
-
   ## Data & training
   parser.add_argument('--batch_size', type=int, default=64)
   parser.add_argument('--lr', type=str, default='3e-4', help='lrlvl0_lrlvl1_...')
@@ -32,6 +26,13 @@ def parse_arguments():
   parser.add_argument('--mgrit', action='store_true')
   parser.add_argument('--solver', type=str, default='Forward Euler')
   parser.add_argument('--T', type=float, default=None)
+
+  ## Debugging, seed and saving
+  parser.add_argument('--debug', action='store_true')
+  # parser.add_argument('--models_dir', type=str, default=None)
+  # parser.add_argument('--output_fn', type=str, default=None)
+  parser.add_argument('--save', action='store_true')
+  parser.add_argument('--seed', type=int, default=0)#1337)
 
   args = parser.parse_args()
   return args
