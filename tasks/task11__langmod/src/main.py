@@ -25,10 +25,57 @@ from init_weights import init_weights
 
 DATA_DIR = os.path.join('..', 'data')
 
+def obtain_model_name(args):
+  # model_name = '_'.join([
+  #   f'{k}{args.__dict__[k]}'.replace(' ', '_') \
+  #   for k in sorted(args.__dict__.keys())
+  # ]) # str(args)
+  model_name = ''
+  for (k, v) in sorted(args.__dict__.items()):
+    if v is None: continue
+    if k == 'batch_size': k = 'bs'
+    if k == 'coarsening_factor': k = 'cf'
+    if k == 'context_window': k = 'L'
+    if k == 'continuous': k = 'cont'
+    if v == False: v = 'F'
+    if v == True: v = 'T'
+    if k == 'input_text': k = 'text'
+    if v == 'shakespeare': v = 'shak'
+    if v == 'wikipedia': v = 'wiki'
+    if k == 'levels_scheme': k = 'scheme'
+    if k == 'save': continue
+    if k == 'model_dimension': k = 'd'
+    if k == 'model_name': k = ''
+    if k == 'num_epochs': k = 'epochs'
+    if k == 'num_heads': k = 'H'
+    if v == 'Forward Euler': v = 'FE'
+    if k == 'tokenization': k = 'tok'
+    if v == 'character': v = 'char'
+    if k == 'load': continue
+    model_name += f'_{k}{v}'
+  model_name = model_name[1:]
+  model_name1 = model_name + '_copy1'
+  model_name2 = model_name + '_copy2'
+  return model_name1, model_name2
+
+def generate_text(m, device, decode, max_new_tokens, context_window):
+  m.eval()
+  context = torch.zeros((1, 1), dtype=torch.long, device=device)
+  print(
+    decode(
+      generate(
+        model=m, x=context, max_new_tokens=max_new_tokens, 
+        context_window=context_window,
+      )[0].tolist()
+    )
+  )
+  #open('../data/more.txt', 'w').write(decode(m.generate(context, max_new_tokens=10000)[0].tolist()))
+
+
 def main():
   # hyperparameters
   num_batch_passes = int(args.num_epochs)
-  eval_interval = 500
+  eval_interval = 1000#500
   learning_rate = float(args.lr)
   max_new_tokens = 500
   device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -95,6 +142,24 @@ def main():
   optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
   criterion = nn.CrossEntropyLoss()
 
+  model_name1, model_name2 = obtain_model_name(args)
+
+  if args.load:
+    other_states = {}
+    try:
+      print('Loading model, copy1')
+      other_states = model.load(model_name=model_name1, optimizer=optimizer)
+      print('other_states', other_states)
+    except: 
+      try:
+        print('Loading model, copy2')
+        other_states = model.load(model_name=model_name2, optimizer=optimizer)
+      except:
+        # print('The model could not be loaded because of an unknown error.')
+        other_states['error'] = 'Unknown error.'
+    if 'error' in other_states: print(f"Error: {other_states['error']}")
+    else: print('Model successfully loaded.')
+
   # if k != 0:
   #   print(f'Interpolating weights from previous model to the new one')
   #   interpolate_weights(model, old_model)
@@ -103,6 +168,8 @@ def main():
 
   print(f'\n3. Training model w/ {args.N} decoder layers')
   model.train()
+  model_save_t0 = time.time()
+  train_bf_eval_t0 = time.time()
   for batch_idx in range(num_batch_passes+1):
     # batch_start_time = time.time()
 
@@ -114,43 +181,27 @@ def main():
         device, optimizer, criterion,
       )
 
-    # batch_end_time = time.time()
-    # print(f'Batch training time: {batch_end_time - batch_start_time :.2f} seconds')
+      # batch_end_time = time.time()
+      # print(f'Batch training time: {batch_end_time - batch_start_time :.2f} seconds')
 
-    if args.save:
-      # fn_without_extension = '_'.join([
-      #   f'{k}{args.__dict__[k]}'.replace(' ', '_') \
-      #   for k in sorted(args.__dict__.keys())
-      # ]) # str(args)
-      fn_without_extension = ''
-      for (k, v) in sorted(args.__dict__.items()):
-        if v is None: continue
-        if k == 'batch_size': k = 'bs'
-        if k == 'coarsening_factor': k = 'cf'
-        if k == 'context_window': k = 'L'
-        if k == 'continuous': k = 'cont'
-        if v == False: v = 'F'
-        if v == True: v = 'T'
-        if k == 'input_text': k = 'text'
-        if v == 'shakespeare': v = 'shak'
-        if v == 'wikipedia': k = 'wiki'
-        if k == 'levels_scheme': k = 'scheme'
-        if k == 'save': continue
-        if k == 'model_dimension': k = 'd'
-        if k == 'model_name': k = ''
-        if k == 'num_epochs': k = 'epochs'
-        if k == 'num_heads': k = 'H'
-        if v == 'Forward Euler': v = 'FE'
-        if k == 'tokenization': k = 'tok'
-        if v == 'character': v = 'char'
-        fn_without_extension += f'_{k}{v}'
-      fn_without_extension = fn_without_extension[1:]
-      model.save(
-        fn_without_extension=fn_without_extension, optimizer=optimizer,
-      )
+      ## Save & generate some text every 5 minutes
+      if args.save and time.time() - model_save_t0 > 5*60:
+        t1 = time.time()
+        model.save(
+          fn_without_extension=model_name1, optimizer=optimizer,
+        )
+        model.save(
+          fn_without_extension=model_name2, optimizer=optimizer,
+        )
+        print(f'Models-saving time: {time.time() - t1}')
+
+        model_save_t0 = time.time()
 
     # every once in a while evaluate the loss on train and val sets
     if batch_idx % eval_interval == 0 or batch_idx == num_batch_passes:
+      evaluation_t0 = time.time()
+      print(f'Training time until evaluation: {evaluation_t0 - train_bf_eval_t0}')
+
       losses = estimate_loss(
         model, eval_iters, train_data, val_data, args.context_window, 
         args.batch_size, device, criterion
@@ -160,19 +211,20 @@ def main():
       + f"val loss {losses['val'] :.8f}"
       )
 
+      print(f'Evaluation time: {time.time() - evaluation_t0}')
+
+      generation_t0 = time.time()
+
+      print('Generate some text:')
+      generate_text(m, device, decode, max_new_tokens, args.context_window)
+
+      print(f'Text-generation time: {time.time() - generation_t0}')
+      train_bf_eval_t0 = time.time()
+
   if args.generate:
     print('\n4. Generating text')
     # generate from the model
-    context = torch.zeros((1, 1), dtype=torch.long, device=device)
-    print(
-      decode(
-        generate(
-          model=m, x=context, max_new_tokens=max_new_tokens, 
-          context_window=args.context_window,
-        )[0].tolist()
-      )
-    )
-    #open('../data/more.txt', 'w').write(decode(m.generate(context, max_new_tokens=10000)[0].tolist()))
+    generate_text(m, device, decode, max_new_tokens, args.context_window)
 
 if __name__ == '__main__':
   main()

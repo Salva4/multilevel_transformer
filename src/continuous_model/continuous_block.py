@@ -6,7 +6,7 @@ import sys
 sys.path.append('../../../src/')
 
 from ode_solvers.ode_solvers import Φ_ForwardEuler, Φ_Heun, Φ_RK4
-from mgrit.mgrit import MGRIT_fwd
+from mgrit.mgrit import MGRIT
 
 class ContinuousBlock(nn.Module):
   def __init__(self, ψ, Nf, T, solver, coarsening_factor=2, **kwargs):#, num_levels):#, interpol):
@@ -61,12 +61,12 @@ class ContinuousBlock(nn.Module):
     #   'ln2.weight', 'ln2.bias'
     # ]
 
-  def forward(self, x, level=0, MGRIT=False, MGOPT=False, **kwargs):
-    assert MGRIT + MGOPT <= 1
+  def forward(self, x, level=0, use_MGRIT=False, use_MGOPT=False, **kwargs):
+    assert use_MGRIT + use_MGOPT <= 1
 
     output = {}
 
-    if not MGRIT and not MGOPT:
+    if not use_MGRIT and not use_MGOPT:
       N = self.Ns[level]
       T = self.T
       c = self.c
@@ -77,15 +77,15 @@ class ContinuousBlock(nn.Module):
       for i in range(N):
         x = self.Φ(F=ψ, i=i, x=x, dt=dt, **kwargs)
 
-    elif MGRIT:
-      N, NΔ = self.Ns[level : level+2]
-      u = MGRIT_fwd(u0=x, N=N, T=self.T, c=self.c, Φ=self.Φ, Ψ=self.ψ, 
-                    **kwargs)
+    elif use_MGRIT:
+      N = self.Ns[level]
+      u = MGRIT(u0=x, N=N, T=self.T, c=self.c, Φ=self.Φ, Ψ=self.ψ, **kwargs)
       x = u[-1]
       output['states'] = u
 
-    elif MGOPT:
-      x = MGOPT_fwd(x, **kwargs)
+    elif use_MGOPT:
+      raise Exception('Not implemented (yet).')
+      x = MGOPT(x, **kwargs)
 
     output['x'] = x
 

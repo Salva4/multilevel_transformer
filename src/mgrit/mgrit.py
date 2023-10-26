@@ -39,9 +39,7 @@ def interpolate_u(u, eΔ, NΔ, c):
   for i in range(NΔ+1):  # parallel for
     u[c*i] += eΔ[i]
 
-def MGRIT_fwd(
-    u0, N, T, c, Φ, Ψ, relaxation, num_levels, num_iterations, **kwargs
-  ):
+def MGRIT(u0, N, T, c, Φ, Ψ, relaxation, num_iterations, **kwargs):
   ''' MGRIT implementation with only 2 levels '''
 
   NΔ = N//c

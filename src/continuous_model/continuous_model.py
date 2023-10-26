@@ -48,6 +48,10 @@ class ContinuousModel(nn.Module):
                   **other''' 
     self.model.static_save(self, **kwargs)
 
+  def load(self, **kwargs):
+    '''Arguments: model, model_path, optimizer=None'''
+    return self.model.static_load(self, **kwargs)
+
   # def init_params(self):
   #   self.apply(self._init_layers)
 

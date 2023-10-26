@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from .save import save_model
+from .save import save_model, load_model
 
 class ContinuousBlock(nn.Module):
   def __init__(self, ResidualLayer, N, **kwargs):
@@ -121,6 +121,14 @@ class Model(nn.Module):
   @staticmethod
   def static_save(model, **kwargs):
     save_model(model, **kwargs)
+
+  def load(self, **kwargs):
+    '''Arguments: model, model_path, optimizer=None'''
+    return self.static_load(self, **kwargs)
+
+  @staticmethod
+  def static_load(model, **kwargs):
+    return load_model(model, **kwargs)
 
   # def init_params(self):
   #   self.apply(self._init_layers)

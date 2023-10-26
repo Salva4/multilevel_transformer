@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 
+@torch.no_grad()
 def generate(model, x, max_new_tokens, context_window, **kwargs):
   for _ in range(max_new_tokens):
     x_cond = x[:, -context_window:]
