@@ -20,10 +20,6 @@ def compute_r(u, N, Φ, ψ, h, **kwargs):
   _ = r[0].zero_()
   return r
 
-# def correct_u(u, eΔ, NΔ, c):
-#   for i in range(NΔ):
-#     u[c*i] += eΔ[i]
-
 def F_relaxation(u, N, c, Φ, ψ, h, **kwargs):
   for i in range(N//c):  # parallel for
     for ii in range(c-1):  # serial for
@@ -39,12 +35,14 @@ def interpolate_u(u, eΔ, NΔ, c):
   for i in range(NΔ+1):  # parallel for
     u[c*i] += eΔ[i]
 
-def MGRIT(u0, N, T, c, Φ, Ψ, relaxation, num_iterations, **kwargs):
+@torch.no_grad()
+def MGRIT(u0, N, T, c, Φ, F, relaxation, num_iterations, **kwargs):
   ''' MGRIT implementation with only 2 levels '''
 
   NΔ = N//c
   h, hΔ = T/N, T/NΔ
-  ψ, ψΔ = Ψ, Ψ[::c]
+  # ψ, ψΔ = F, F[::c]
+  ψ, ψΔ = F, lambda i, x: F(c*i, x)
 
   u = u0.new(size=(N+1, *u0.shape)).zero_()  # randomize?
   u[0] = u0.clone()
@@ -53,20 +51,21 @@ def MGRIT(u0, N, T, c, Φ, Ψ, relaxation, num_iterations, **kwargs):
 
     ## Fine level: relax and go down
     relax_approximation(
-      u=u, N=N, c=c, Φ=Φ, ψ=ψ, h=h, relaxation=relaxation, **kwargs
+      u=u, N=N, c=c, Φ=Φ, ψ=ψ, h=h, relaxation=relaxation, **kwargs,
     )
     r = compute_r(u=u, N=N, Φ=Φ, ψ=ψ, h=h, **kwargs)
     uΔ, rΔ = restrict_to_coarser_grid(u=u, r=r, c=c)
     
     ## Coarse level: compute coarse grid approximation
-    vΔ = coarse_grid_error_approximation(uΔ=uΔ, NΔ=NΔ, Φ=Φ, ψ=ψΔ, hΔ=hΔ, rΔ=rΔ, 
-                                    **kwargs)
+    vΔ = coarse_grid_error_approximation(
+      uΔ=uΔ, NΔ=NΔ, Φ=Φ, ψ=ψΔ, hΔ=hΔ, rΔ=rΔ, **kwargs,
+    )
     eΔ = vΔ.clone() - uΔ.clone()
 
     ## Fine level: correct and go up
     interpolate_u(u=u, eΔ=eΔ, NΔ=NΔ, c=c)
     relax_approximation(
-      u=u, N=N, c=c, Φ=Φ, ψ=ψ, h=h, relaxation='F', **kwargs
+      u=u, N=N, c=c, Φ=Φ, ψ=ψ, h=h, relaxation='F', **kwargs,
     )
 
   return u

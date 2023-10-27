@@ -15,8 +15,8 @@ def get_batch(
 
 @torch.no_grad()
 def estimate_loss(
-  model, eval_iters, train_data, val_data, context_window, batch_size, device, 
-  criterion,
+  model, eval_iters, train_data, val_data, device, criterion, context_window, 
+  batch_size, mgrit, mgopt, relaxation, num_iterations, **kwargs,
 ):
   out = {}
   model.eval()
@@ -32,7 +32,8 @@ def estimate_loss(
       input_ids, target_ids = batch
       model_inputs = {
         'input': input_ids, 'target': target_ids, 'criterion': criterion, 
-        'compute_accuracy': False,
+        'compute_accuracy': False, 'use_MGRIT': mgrit, 'use_MGOPT': mgopt, 
+        'relaxation': relaxation, 'num_iterations': num_iterations,
       }
       model_outputs = model(**model_inputs)
       loss = model_outputs['loss']
@@ -45,18 +46,24 @@ def estimate_loss(
   return out
 
 def train_batch(
-  model, train_data, val_data, context_window, batch_size, device, optimizer, 
-  criterion,
+  model, train_data, val_data, device, optimizer, criterion, context_window, 
+  batch_size, mgrit, mgopt, relaxation, num_iterations, **kwargs,
 ):
   batch = get_batch(
     'train', train_data, val_data, context_window, batch_size, device,
   )
   input_ids, target_ids = batch
-  model_inputs = {'input': input_ids, 'target': target_ids,
-                  'criterion': criterion, 'compute_accuracy': False}
-  model_outputs = model(**model_inputs)
+  model_inputs = {
+    'input': input_ids, 'target': target_ids, 'criterion': criterion, 
+    'compute_accuracy': False, 'use_MGRIT': mgrit, 'use_MGOPT': mgopt, 
+    'relaxation': relaxation, 'num_iterations': num_iterations,
+  }
+  model_outputs = model(**model_inputs)#, **kwargs)
   loss = model_outputs['loss']
+  print(f'loss {loss.item()}')
 
   optimizer.zero_grad(set_to_none=True)
   loss.backward()
   optimizer.step()
+
+

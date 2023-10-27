@@ -38,11 +38,6 @@ class ContinuousUnit(nn.Module):
         k4 = phi[n+2](x +     h*k3, **kwargs)
         x = x + h/6*(k1 + 2*k2 + 2*k3 + k4)
 
-    # elif scheme == 'debug':
-    #   h = dt
-    #   for n in range(N):
-    #     x = x + h*phi[n](x, **kwargs)    
-
     return x
 
 

@@ -35,13 +35,7 @@ class ContinuousModel(nn.Module):
 
     # self.num_params = self.weights_flat_().shape[0]
 
-  def forward(self, **state):
-    # state = {'x': x}
-    # state.update(self.precontinuous_block (**state))
-    # state.update(self.continuous_block    (**state))
-    # state.update(self.postcontinuous_block(**state))
-    # return state
-    return self.model.static_forward(self, **state)
+  def forward(self, **state): return self.model.static_forward(self, **state)
 
   def save(self, **kwargs): 
     '''Arguments: fn_without_extension=None, models_dir=None, optimizer=None, 

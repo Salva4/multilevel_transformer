@@ -58,19 +58,19 @@ def obtain_model_name(args):
   model_name2 = model_name + '_copy2'
   return model_name1, model_name2
 
-def generate_text(m, device, decode, max_new_tokens, context_window):
+def generate_text(m, device, decode, max_new_tokens, **kwargs):
   m.eval()
-  context = torch.zeros((1, 1), dtype=torch.long, device=device)
+  bos_token = '<|endoftext|>'
+  bos_token_id = 50256#tokenizer('<|endoftext|>')['input_ids'][0]
+  context = torch.empty((1, 1), dtype=torch.long, device=device).fill_(bos_token_id)
   print(
     decode(
       generate(
-        model=m, x=context, max_new_tokens=max_new_tokens, 
-        context_window=context_window,
+        model=m, x=context, max_new_tokens=max_new_tokens, **kwargs,
       )[0].tolist()
     )
   )
   #open('../data/more.txt', 'w').write(decode(m.generate(context, max_new_tokens=10000)[0].tolist()))
-
 
 def main():
   # hyperparameters
@@ -87,14 +87,15 @@ def main():
   # ------------
 
   if args.debug:
-    num_batch_passes = 10#100
+    num_batch_passes = 1#10#100
     args.batch_size = 2
-    context_window = 8
+    args.context_window = 5
     eval_interval = 1
     eval_iters = 1
     max_new_tokens = 10
     args.model_dimension = 32
     args.num_heads = 4
+    args.continuous = True
 
   print(args)
 
@@ -105,7 +106,7 @@ def main():
   # train_data, val_data, decode, vocabulary_size = \
   #   data.tokenize_data_at_character_level(DATA_PATH)
   train_data, val_data, decode, vocabulary_size = \
-    data.obtain_data(DATA_DIR, args.input_text, args.tokenization)
+    data.obtain_data(DATA_DIR, args.input_text, args.tokenization, args.debug)
 
   ## MODEL
   print('\n2. Building model')
@@ -172,13 +173,14 @@ def main():
   train_bf_eval_t0 = time.time()
   for batch_idx in range(num_batch_passes+1):
     # batch_start_time = time.time()
+    print(f'batch_idx {batch_idx}')
 
     torch.manual_seed(batch_idx)
 
     if batch_idx > 0:
       train_batch(
-        model, train_data, val_data, args.context_window, args.batch_size, 
-        device, optimizer, criterion,
+        model, train_data, val_data, device, optimizer, criterion, 
+        **args.__dict__,
       )
 
       # batch_end_time = time.time()
@@ -203,8 +205,8 @@ def main():
       print(f'Training time until evaluation: {evaluation_t0 - train_bf_eval_t0}')
 
       losses = estimate_loss(
-        model, eval_iters, train_data, val_data, args.context_window, 
-        args.batch_size, device, criterion
+        model, eval_iters, train_data, val_data, device, criterion, 
+        **args.__dict__,
       )
       print(
         f"Batch {batch_idx}: train loss {losses['train'] :.8f}, " \
@@ -216,7 +218,7 @@ def main():
       generation_t0 = time.time()
 
       print('Generate some text:')
-      generate_text(m, device, decode, max_new_tokens, args.context_window)
+      generate_text(m, device, decode, max_new_tokens, **args.__dict__)
 
       print(f'Text-generation time: {time.time() - generation_t0}')
       train_bf_eval_t0 = time.time()
@@ -224,7 +226,7 @@ def main():
   if args.generate:
     print('\n4. Generating text')
     # generate from the model
-    generate_text(m, device, decode, max_new_tokens, args.context_window)
+    generate_text(m, device, decode, max_new_tokens, **args.__dict__)
 
 if __name__ == '__main__':
   main()

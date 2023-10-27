@@ -7,6 +7,7 @@ sys.path.append('../../../src/')
 
 from ode_solvers.ode_solvers import Φ_ForwardEuler, Φ_Heun, Φ_RK4
 from mgrit.mgrit import MGRIT
+from continuous_model.gradient_function import GradientFunction
 
 class ContinuousBlock(nn.Module):
   def __init__(self, ψ, Nf, T, solver, coarsening_factor=2, **kwargs):#, num_levels):#, interpol):
@@ -20,7 +21,6 @@ class ContinuousBlock(nn.Module):
 
     self.Ns = []
     level = 0
-    # for level in range(num_levels): 
     while Nf % c**level == 0:
       self.Ns.append(Nf // c**level)
       level += 1
@@ -66,26 +66,16 @@ class ContinuousBlock(nn.Module):
 
     output = {}
 
-    if not use_MGRIT and not use_MGOPT:
-      N = self.Ns[level]
-      T = self.T
-      c = self.c
-      dt = T / N
-      # ψ = [self.ψ[i] for i in range(len(self.ψ)) if i % c**level == 0]
-      ψ = self.ψ[::c**level]
+    N = self.Ns[level]
+    T = self.T
+    c = self.c
+    Φ = self.Φ
+    ψ = self.ψ[::c**level]
 
-      for i in range(N):
-        x = self.Φ(F=ψ, i=i, x=x, dt=dt, **kwargs)
+    extended_kwargs = kwargs.copy()
+    extended_kwargs.update({'N': N, 'T': T, 'c': c, 'Φ': Φ, 'ψ': ψ})
 
-    elif use_MGRIT:
-      N = self.Ns[level]
-      u = MGRIT(u0=x, N=N, T=self.T, c=self.c, Φ=self.Φ, Ψ=self.ψ, **kwargs)
-      x = u[-1]
-      output['states'] = u
-
-    elif use_MGOPT:
-      raise Exception('Not implemented (yet).')
-      x = MGOPT(x, **kwargs)
+    x = GradientFunction.apply(x, extended_kwargs, use_MGRIT, use_MGOPT)
 
     output['x'] = x
 
@@ -293,20 +283,5 @@ class ContinuousBlock(nn.Module):
   #   #     exec(
   #   #       f'self.Rs[n_old].{weight}.data -= old_model.continuous_block.Rs[n_old].{weight}.data'
   #   #     )
-
-# class Lambda(nn.Module):
-#   def __init__(self, function, *args, **kwargs):
-#     super().__init__()
-#     self.function = function
-#     self.
-
-
-
-
-
-
-
-
-
 
 
