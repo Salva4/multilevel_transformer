@@ -58,6 +58,23 @@ def obtain_model_name(args):
   model_name2 = model_name + '_copy2'
   return model_name1, model_name2
 
+def load_model(model, optimizer, model_name1, model_name2):
+  other_states = {}
+  try:
+    print('Loading model, copy1')
+    other_states = model.load(model_name=model_name1, optimizer=optimizer)
+    print('other_states', other_states)
+  except: 
+    try:
+      print('Loading model, copy2')
+      other_states = model.load(model_name=model_name2, optimizer=optimizer)
+    except:
+      # print('The model could not be loaded because of an unknown error.')
+      other_states['error'] = 'Unknown error.'
+  if 'error' in other_states: print(f"Error: {other_states['error']}")
+  else: print('Model successfully loaded.')
+
+
 def generate_text(m, device, decode, max_new_tokens, **kwargs):
   m.eval()
   bos_token = '<|endoftext|>'
@@ -79,9 +96,9 @@ def main():
   learning_rate = float(args.lr)
   max_new_tokens = 500
   device = 'cuda' if torch.cuda.is_available() else 'cpu'
-  print(device)
+  print(f'device {device}')
   eval_iters = 200
-  T = args.T if args.T is not None else args.N
+  T = args.T if args.T is not None else args.num_layers
   dropout = 0.#0.2
   seed = args.seed
   # ------------
@@ -99,6 +116,8 @@ def main():
 
   print(args)
 
+  _vars = args.__dict__.copy()
+
   torch.manual_seed(seed)
 
   ## DATA
@@ -110,13 +129,13 @@ def main():
 
   ## MODEL
   print('\n2. Building model')
-  print(f'Building model w/ {args.N} decoder layers')
+  print(f'Building model w/ {args.num_layers} decoder layers')
   model_architecture_path = '.'.join(
     ['model_architectures', args.model_name, 'architecture']
   )
   model = Model(
     model_architecture_path=model_architecture_path, 
-    N=args.N,
+    num_layers=args.num_layers,
     model_dimension=args.model_dimension,
     num_heads=args.num_heads,
     dropout=dropout,
@@ -128,7 +147,7 @@ def main():
 
   if args.continuous:
     print(' 2.1 Building continuous model')
-    model = ContinuousModel(model=model, T=T, solver=args.solver)
+    model = ContinuousModel(model=model, T=T, solver=args.ode_solver)
 
   m = model.to(device)
   # print the number of parameters in the model
@@ -145,21 +164,7 @@ def main():
 
   model_name1, model_name2 = obtain_model_name(args)
 
-  if args.load:
-    other_states = {}
-    try:
-      print('Loading model, copy1')
-      other_states = model.load(model_name=model_name1, optimizer=optimizer)
-      print('other_states', other_states)
-    except: 
-      try:
-        print('Loading model, copy2')
-        other_states = model.load(model_name=model_name2, optimizer=optimizer)
-      except:
-        # print('The model could not be loaded because of an unknown error.')
-        other_states['error'] = 'Unknown error.'
-    if 'error' in other_states: print(f"Error: {other_states['error']}")
-    else: print('Model successfully loaded.')
+  if args.load: load_model(model, optimizer, model_name1, model_name2)
 
   # if k != 0:
   #   print(f'Interpolating weights from previous model to the new one')
@@ -167,7 +172,7 @@ def main():
     
   torch.manual_seed(seed)
 
-  print(f'\n3. Training model w/ {args.N} decoder layers')
+  print(f'\n3. Training model w/ {args.num_layers} decoder layers')
   model.train()
   model_save_t0 = time.time()
   train_bf_eval_t0 = time.time()

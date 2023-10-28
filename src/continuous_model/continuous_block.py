@@ -10,48 +10,38 @@ from mgrit.mgrit import MGRIT
 from continuous_model.gradient_function import GradientFunction
 
 class ContinuousBlock(nn.Module):
-  def __init__(self, ψ, Nf, T, solver, coarsening_factor=2, **kwargs):#, num_levels):#, interpol):
+  def __init__(self, ψ, N, T, solver, coarsening_factor=2, **kwargs):#, num_levels):#, interpol):
     super().__init__()
-    self.Nf = Nf
+    self.N = N
     self.T = T
     self.solver = solver
     self.c = c = coarsening_factor
     # self.num_levels = num_levels
     # self.interpol = interpol
 
-    self.Ns = []
-    level = 0
-    while Nf % c**level == 0:
-      self.Ns.append(Nf // c**level)
-      level += 1
+    # self.Ns = []
+    # level = 0
+    # while Nf % c**level == 0:
+    #   self.Ns.append(Nf // c**level)
+    #   level += 1
 
     self.ψ = nn.ModuleList([])
 
     if self.solver == 'Forward Euler':
       self.Φ = Φ_ForwardEuler
-      for i in range(self.Nf):
-        self.ψ.append(#copy.deepcopy(
-                      ψ[i])#)  # basis functions
+      for i in range(self.N): self.ψ.append(ψ[i])  # basis functions
 
     elif self.solver == 'Heun': 
       self.Φ = Φ_Heun
-      for i in range(self.Nf):
-        self.ψ.append(#copy.deepcopy(
-                      ψ[i])#)
-
-      self.ψ.append(#copy.deepcopy(
-                    ψ[-1])#)
+      for i in range(self.N): self.ψ.append(ψ[i])
+      self.ψ.append(copy.deepcopy(ψ[-1]))
 
     elif self.solver == 'RK4':
       self.Φ = Φ_RK4
-      for i in range(self.Nf):
-        for _ in range(2): self.ψ.append(#copy.deepcopy(
-                                         ψ[i])#)
-
-      self.ψ.append(#copy.deepcopy(
-                    ψ[-1])#)
-
-    # self.dt = T/N
+      for i in range(self.N):
+        self.ψ.append(ψ[i])
+        self.ψ.append(copy.deepcopy(ψ[i]))
+      self.ψ.append(copy.deepcopy(ψ[-1]))
 
     # self.weights = [
     #   'fc1.weight', 'fc1.bias', 
@@ -61,21 +51,23 @@ class ContinuousBlock(nn.Module):
     #   'ln2.weight', 'ln2.bias'
     # ]
 
-  def forward(self, x, level=0, use_MGRIT=False, use_MGOPT=False, **kwargs):
-    assert use_MGRIT + use_MGOPT <= 1
+  def forward(
+    self, x, level=0, use_mgrit=False, use_mgopt=False, **fwd_pass_details,
+  ):
+    assert use_mgrit + use_mgopt <= 1
 
     output = {}
 
-    N = self.Ns[level]
+    N = self.N // self.c**level  #self.Ns[level]
     T = self.T
     c = self.c
     Φ = self.Φ
     ψ = self.ψ[::c**level]
 
-    extended_kwargs = kwargs.copy()
-    extended_kwargs.update({'N': N, 'T': T, 'c': c, 'Φ': Φ, 'ψ': ψ})
+    ode_fwd_details = {'N': N, 'T': T, 'c': c, 'Φ': Φ, 'ψ': ψ}
+    fwd_pass_details.update(ode_fwd_details)
 
-    x = GradientFunction.apply(x, extended_kwargs, use_MGRIT, use_MGOPT)
+    x = GradientFunction.apply(x, use_mgrit, use_mgopt, fwd_pass_details)
 
     output['x'] = x
 

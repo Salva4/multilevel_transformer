@@ -13,20 +13,16 @@ class ContinuousModel(nn.Module):
     self.model = model
     # self.register_buffer('model', model)
     # self.interpol = kwargs['interpol']
-    print(f'''N={self.model.continuous_block.N}, T={kwargs_continuous_block['T']}''')
-    print()
 
     self.precontinuous_block  = self.model.precontinuous_block
     self.postcontinuous_block = self.model.postcontinuous_block
 
     self.continuous_block = ContinuousBlock(
-      # ψ=self.model.continuous_block.residual_layers,
       ψ=nn.ModuleList(
         [layer.residual_layer for layer in model.continuous_block.layers]
       ),
-      Nf=self.model.continuous_block.N,
+      N=self.model.continuous_block.num_layers,
       **kwargs_continuous_block,
-      # num_levels=num_levels,
     )
       # interpol=self.interpol,
 

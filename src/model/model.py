@@ -6,13 +6,13 @@ import torch.nn as nn
 from .save import save_model, load_model
 
 class ContinuousBlock(nn.Module):
-  def __init__(self, ResidualLayer, N, **kwargs):
+  def __init__(self, ResidualLayer, num_layers, **kwargs):
     super().__init__()
-    self.N = N
+    self.num_layers = num_layers
     self.layers = nn.ModuleList(
       [ContinuousLayer(ResidualLayer=ResidualLayer, seed=0,#i, 
                                                   **kwargs) \
-       for i in range(self.N)]
+       for i in range(self.num_layers)]
     )
 
   def forward(self, **state):
@@ -32,7 +32,7 @@ class ContinuousLayer(nn.Module):
 ##
 # Transformer encoder layer using their code's scheme & <i>MultiheadAttention</i>
 class Model(nn.Module):
-  def __init__(self, model_architecture_path, N, 
+  def __init__(self, model_architecture_path, num_layers, 
                seed_precontinuous_block=None, seed_postcontinuous_block=None, 
                **kwargs):
     super().__init__()
@@ -46,7 +46,7 @@ class Model(nn.Module):
     )
     self.continuous_block = ContinuousBlock(
       ResidualLayer=architecture_module.ContinuousResidualLayer,
-      N=N,
+      num_layers=num_layers,
       **kwargs,
     )
     # if seed_postcontinuous_block is not None:
