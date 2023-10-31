@@ -66,4 +66,6 @@ def train_batch(
   loss.backward()
   optimizer.step()
 
+  print('g', list(model.continuous_block.parameters())[0].grad.ravel()[:5])
+
 

@@ -5,17 +5,21 @@ import sys
 
 sys.path.append('../../../src/')
 
-from ode_solvers.ode_solvers import Φ_ForwardEuler, Φ_Heun, Φ_RK4
+from ode_solvers.ode_solvers import obtain_Φ#Φ_ForwardEuler, Φ_Heun, Φ_RK4
 from mgrit.mgrit import MGRIT
 from continuous_model.gradient_function import GradientFunction
+
+## Debug
+from continuous_model.solve.solve_sequential import solve_sequential
 
 class ContinuousBlock(nn.Module):
   def __init__(self, ψ, N, T, solver, coarsening_factor=2, **kwargs):#, num_levels):#, interpol):
     super().__init__()
     self.N = N
     self.T = T
-    self.solver = solver
     self.c = c = coarsening_factor
+    self.solver = solver
+    self.Φ = obtain_Φ(solver)
     # self.num_levels = num_levels
     # self.interpol = interpol
 
@@ -28,16 +32,16 @@ class ContinuousBlock(nn.Module):
     self.ψ = nn.ModuleList([])
 
     if self.solver == 'Forward Euler':
-      self.Φ = Φ_ForwardEuler
+      # self.Φ = Φ_ForwardEuler
       for i in range(self.N): self.ψ.append(ψ[i])  # basis functions
 
     elif self.solver == 'Heun': 
-      self.Φ = Φ_Heun
+      # self.Φ = Φ_Heun
       for i in range(self.N): self.ψ.append(ψ[i])
       self.ψ.append(copy.deepcopy(ψ[-1]))
 
     elif self.solver == 'RK4':
-      self.Φ = Φ_RK4
+      # self.Φ = Φ_RK4
       for i in range(self.N):
         self.ψ.append(ψ[i])
         self.ψ.append(copy.deepcopy(ψ[i]))
@@ -62,12 +66,24 @@ class ContinuousBlock(nn.Module):
     T = self.T
     c = self.c
     Φ = self.Φ
+    solver = self.solver
     ψ = self.ψ[::c**level]
 
-    ode_fwd_details = {'N': N, 'T': T, 'c': c, 'Φ': Φ, 'ψ': ψ}
+    ode_fwd_details = {
+      'N': N, 'T': T, 'c': c, 'solver': solver, 'Φ': Φ, 'ψ': ψ,
+    }
     fwd_pass_details.update(ode_fwd_details)
 
+    ## No-debug:
     x = GradientFunction.apply(x, use_mgrit, use_mgopt, fwd_pass_details)
+
+    ## Debug:
+    # h = T/N
+    # LAYERS_IDX_CONSTANT = {'Forward Euler': 1, 'Heun': 1, 'RK4': 2}
+    # def F(t, x, **other_F_inputs):
+    #   return ψ[round(t/h*LAYERS_IDX_CONSTANT[solver])](x, **other_F_inputs)
+    # fwd_pass_details['F'] = F
+    # x = solve_sequential(x, **fwd_pass_details)
 
     output['x'] = x
 

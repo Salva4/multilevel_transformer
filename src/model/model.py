@@ -42,7 +42,7 @@ class Model(nn.Module):
     #   torch.manual_seed(seed_precontinuous_block)
     torch.manual_seed(0)
     self.precontinuous_block = architecture_module.PreContinuousBlock(
-      **kwargs
+      **kwargs,
     )
     self.continuous_block = ContinuousBlock(
       ResidualLayer=architecture_module.ContinuousResidualLayer,
@@ -53,7 +53,7 @@ class Model(nn.Module):
     #   torch.manual_seed(seed_postcontinuous_block)
     torch.manual_seed(0)
     self.postcontinuous_block = architecture_module.PostContinuousBlock(
-      **kwargs
+      **kwargs,
     )
     ## Continuous block
     # if init_method.lower() != 'none':

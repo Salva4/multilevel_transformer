@@ -1,22 +1,47 @@
 
 
+## F's
+def F_ForwardEuler(t, x, h, F, **other_F_inputs):
+  k1 = F(t, x, **other_F_inputs)['x']
+  return k1
 
-def Φ_ForwardEuler(i, F, x, dt, **other_F_inputs):
-  F_i_x = F(i, x, **other_F_inputs)['x']
+def F_Heun(t, x, h, F, **other_F_inputs):
+  k1 = F(t    , x       , **other_F_inputs)['x']
+  k2 = F(t + h, x + h*k1, **other_F_inputs)['x']
+  return (k1 + k2)/2
 
-  return x + dt * F_i_x
+def F_RK4(t, x, h, F, **other_F_inputs):
+  k1 = F(t      , x         , **other_F_inputs)['x']
+  k2 = F(t + h/2, x + h/2*k1, **other_F_inputs)['x']
+  k3 = F(t + h/2, x + h/2*k2, **other_F_inputs)['x']
+  k4 = F(t + h  , x + h  *k3, **other_F_inputs)['x']
+  return (k1 + 2*k2 + 2*k3 + k4)/6
 
-def Φ_Heun(i, F, x, dt, **other_F_inputs):
-  k1 = F(i  , x          , **other_F_inputs)['x']
-  k2 = F(i+1, x + dt * k1, **other_F_inputs)['x']
+## Φ's
+def Φ_ForwardEuler(t, x, h, F, **other_F_inputs):
+  F = F_ForwardEuler(t, x, h, F, **other_F_inputs)
+  return x + h*F
 
-  return x + dt * (k1 + k2)/2
+def Φ_Heun(t, x, h, F, **other_F_inputs):
+  F = F_Heun(t, x, h, F, **other_F_inputs)
+  return x + h*F
 
-def Φ_RK4(i, F, x, dt, **other_F_inputs):
-  k1 = F(i,   x            , **other_F_inputs)['x']
-  k2 = F(i+1, x + dt/2 * k1, **other_F_inputs)['x']
-  k3 = F(i+1, x + dt/2 * k2, **other_F_inputs)['x']
-  k4 = F(i+2, x + dt   * k3, **other_F_inputs)['x']
+def Φ_RK4(t, x, h, F, **other_F_inputs):
+  F = F_RK4(t, x, h, F, **other_F_inputs)
+  return x + h*F
 
-  return x + dt * (k1 + 2*k2 + 2*k3 + k4)/6
+## Handler
+def obtain_Φ(solver):
+  if   solver == 'Forward Euler': return Φ_ForwardEuler
+  elif solver == 'Heun'         : return Φ_Heun
+  elif solver == 'RK4'          : return Φ_RK4
+  else: raise Exception('Unknown solver.')
+
+
+
+
+
+
+
+
 

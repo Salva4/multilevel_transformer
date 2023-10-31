@@ -1,11 +1,12 @@
 import torch
 
-def coarse_grid_error_approximation(uΔ, NΔ, Φ, FΔ, hΔ, rΔ, **kwargs):
+def coarse_grid_error_approximation(uΔ, NΔ, Φ, F, hΔ, rΔ, **kwargs):
   vΔ = uΔ.clone()
   #if rΔ is not None: vΔ[0] += rΔ[0]  <-- rΔ[0] should always be 0
   for i in range(NΔ):  # serial for
-    vΔ[i+1] = Φ(F=FΔ, i=i, x=vΔ[i], dt=hΔ, **kwargs) \
-              + uΔ[i+1] - Φ(F=FΔ, i=i, x=uΔ[i], dt=hΔ, **kwargs) \
+    t = i*hΔ
+    vΔ[i+1] = Φ(t=t, x=vΔ[i], h=hΔ, F=F, **kwargs) \
+              + uΔ[i+1] - Φ(t=t, x=uΔ[i], h=hΔ, F=F, **kwargs) \
               + rΔ[i+1]
   return vΔ
 
@@ -13,7 +14,8 @@ def compute_r(u, N, Φ, F, h, **kwargs):
   a = torch.empty_like(u)
   a[0] = u[0].clone()
   for i in range(N):  # parallel for
-    a[i+1] = u[i+1].clone() - Φ(F=F, i=i, x=u[i], dt=h, **kwargs)
+    t = i*h
+    a[i+1] = u[i+1].clone() - Φ(t=t, x=u[i], h=h, F=F, **kwargs)
   
   ## r := g - a, with g[0] = u0, g[1:] = 0
   r = -a.clone()
@@ -24,12 +26,14 @@ def F_relaxation(u, N, c, Φ, F, h, **kwargs):
   for i in range(N//c):  # parallel for
     for ii in range(c-1):  # serial for
       idx = c*i + ii
-      u[idx+1] = Φ(F=F, i=idx, x=u[idx], dt=h, **kwargs)
+      t = idx*h
+      u[idx+1] = Φ(t=t, x=u[idx], h=h, F=F, **kwargs)
 
 def C_relaxation(u, N, c, Φ, F, h, **kwargs):
   for i in range(1, N//c + 1):  # parallel for
     idx = c*i - 1
-    u[idx+1] = Φ(F=F, i=idx, x=u[idx], dt=h, **kwargs)
+    t = idx*h
+    u[idx+1] = Φ(t=t, x=u[idx], h=h, F=F, **kwargs)
 
 def interpolate_u(u, eΔ, NΔ, c):
   for i in range(NΔ+1):  # parallel for
@@ -41,7 +45,7 @@ def MGRIT(u0, N, T, c, Φ, F, relaxation, num_iterations, **kwargs):
 
   NΔ = N//c
   h, hΔ = T/N, T/NΔ
-  FΔ = lambda i, x, **kwargs: F(c*i, x, **kwargs)
+  # FΔ = lambda t, x, **kwargs: F(c*t, x, **kwargs)
 
   u = u0.new(size=(N+1, *u0.shape)).zero_()  # randomize?
   u[0] = u0.clone()
@@ -57,7 +61,7 @@ def MGRIT(u0, N, T, c, Φ, F, relaxation, num_iterations, **kwargs):
     
     ## Coarse level: compute coarse grid approximation
     vΔ = coarse_grid_error_approximation(
-      uΔ=uΔ, NΔ=NΔ, Φ=Φ, FΔ=FΔ, hΔ=hΔ, rΔ=rΔ, **kwargs,
+      uΔ=uΔ, NΔ=NΔ, Φ=Φ, F=F, hΔ=hΔ, rΔ=rΔ, **kwargs,
     )
     eΔ = vΔ.clone() - uΔ.clone()
 
