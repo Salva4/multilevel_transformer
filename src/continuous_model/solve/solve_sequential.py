@@ -3,6 +3,7 @@ import torch
 ## No-debug:
 @torch.no_grad()
 def solve_sequential(x0, N, T, c, Φ, F, **kwargs):
+  print('solve_sequential')
   h = T/N
   x = torch.zeros(
     size=(N+1, *x0.shape), dtype=torch.float32, device=x0.device,

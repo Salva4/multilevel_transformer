@@ -66,4 +66,14 @@ def train_batch(
   loss.backward()
   optimizer.step()
 
+  print(next(model.precontinuous_block.parameters()).ravel()[:5])
+  print(next(model.continuous_block.parameters()).ravel()[:5])
+  print(next(model.postcontinuous_block.parameters()).ravel()[:5])
+
+
+
+
+
+
+
 

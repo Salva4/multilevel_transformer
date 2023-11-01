@@ -7,8 +7,9 @@ def find_models_dir():
   candidates = [
     fn for fn in outputs_dir_items if fn.startswith('continuous_transformer')
   ]
-  if len(candidates)==0 or len(candidates)>1: return False
-  models_dir = os.path.join('..', 'outputs', candidates[0], 'models')
+  if len(candidates) == 0: return '.'
+  models_dir = os.path.join('..', 'outputs', candidates[-1], 'models')
+  if not os.path.exists(models_dir): os.mkdir(models_dir)
   return models_dir
 
 def load_model(model, model_name, models_dir=None, optimizer=None):
