@@ -185,7 +185,7 @@ def main():
   train_bf_eval_t0 = time.time()
   for batch_idx in range(num_batch_passes+1):
     # batch_start_time = time.time()
-    print(f'batch_idx {batch_idx}')
+    # print(f'batch_idx {batch_idx}')
 
     torch.manual_seed(batch_idx)
 
@@ -213,31 +213,31 @@ def main():
 
         model_save_t0 = time.time()
 
-    # # every once in a while evaluate the loss on train and val sets
-    # if batch_idx % eval_interval == 0 or batch_idx == num_batch_passes:
-    #   evaluation_t0 = time.time()
-    #   if batch_idx != 0:
-    #     print(
-    #       f'Training time until evaluation: ' + \
-    #       f'{evaluation_t0 - train_bf_eval_t0}'
-    #     )
+    # every once in a while evaluate the loss on train and val sets
+    if batch_idx % eval_interval == 0 or batch_idx == num_batch_passes:
+      evaluation_t0 = time.time()
+      if batch_idx != 0:
+        print(
+          f'Training time until evaluation: ' + \
+          f'{evaluation_t0 - train_bf_eval_t0}'
+        )
 
-    #   losses = estimate_loss(
-    #     model, eval_iters, train_data, val_data, device, criterion, 
-    #     **args.__dict__,
-    #   )
-    #   print(
-    #     f"Batch {batch_idx}: train loss {losses['train'] :.8f}, " \
-    #   + f"val loss {losses['val'] :.8f}"
-    #   )
+      losses = estimate_loss(
+        model, eval_iters, train_data, val_data, device, criterion, 
+        **args.__dict__,
+      )
+      print(
+        f"Batch {batch_idx}: train loss {losses['train'] :.8f}, " \
+      + f"val loss {losses['val'] :.8f}"
+      )
 
-    #   print(f'Evaluation time: {time.time() - evaluation_t0}')
+      print(f'Evaluation time: {time.time() - evaluation_t0}')
 
-    #   # generation_t0 = time.time()
-    #   # print('Generate some text:')
-    #   # generate_text(m, device, decode, max_new_tokens, **args.__dict__)
-    #   # print(f'Text-generation time: {time.time() - generation_t0}')
-    #   train_bf_eval_t0 = time.time()
+      # generation_t0 = time.time()
+      # print('Generate some text:')
+      # generate_text(m, device, decode, max_new_tokens, **args.__dict__)
+      # print(f'Text-generation time: {time.time() - generation_t0}')
+      train_bf_eval_t0 = time.time()
 
   if args.generate:
     print('\n4. Generating text')

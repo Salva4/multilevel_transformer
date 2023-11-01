@@ -60,15 +60,15 @@ def train_batch(
   model_inputs.update(fwd_pass_details)
   model_outputs = model(**model_inputs)
   loss = model_outputs['loss']
-  print(f'loss {loss.item()}')
+  # print(f'loss {loss.item()}')
 
   optimizer.zero_grad(set_to_none=True)
   loss.backward()
   optimizer.step()
 
-  print(next(model.precontinuous_block.parameters()).ravel()[:5])
-  print(next(model.continuous_block.parameters()).ravel()[:5])
-  print(next(model.postcontinuous_block.parameters()).ravel()[:5])
+  # print(next(model.precontinuous_block.parameters()).ravel()[:5])
+  # print(next(model.continuous_block.parameters()).ravel()[:5])
+  # print(next(model.postcontinuous_block.parameters()).ravel()[:5])
 
 
 

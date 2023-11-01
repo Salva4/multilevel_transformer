@@ -10,7 +10,7 @@ from mgrit.mgrit import MGRIT
 def solve_MGRIT(
   x, mgrit_relaxation, mgrit_num_iterations, **other_fwd_details
 ): 
-  print('solve_MGRIT')
+  # print('solve_MGRIT')
   return MGRIT(
     x, relaxation=mgrit_relaxation, num_iterations=mgrit_num_iterations, 
     **other_fwd_details,
