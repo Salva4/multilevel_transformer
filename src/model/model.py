@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 
 from .save import save_model, load_model
+from .train import train, evaluate
 
 class ContinuousBlock(nn.Module):
   def __init__(self, ResidualLayer, num_layers, **kwargs):
@@ -73,6 +74,7 @@ class Model(nn.Module):
       assert target is not None and isinstance(criterion, nn.CrossEntropyLoss)
 
     state['x'] = input
+    state['y'] = target
     state.update(model.precontinuous_block (**state))
     state.update(model.continuous_block    (**state))
     state.update(model.postcontinuous_block(**state))
@@ -110,22 +112,43 @@ class Model(nn.Module):
 
     return state
 
+  def train_(self, *args, **kwargs):
+    '''Arguments: 
+      optimizer, device, criterion, get_batch, num_batches, **fwd_pass_details, 
+      compute_accuracy=False, print_times=False
+    '''
+    return self.static_train(self, *args, **kwargs)
+
+  @staticmethod
+  def static_train(model, *args, **kwargs): 
+    return train(model, *args, **kwargs)
+
+  def evaluate(self, *args, **kwargs):
+    '''Arguments: 
+      device, criterion, get_batch, num_batches, compute_accuracy=False, 
+      print_times=False, **fwd_pass_details,
+    '''
+    return self.static_evaluate(self, *args, **kwargs)
+
+  @staticmethod
+  def static_evaluate(model, *args, **kwargs): 
+    return evaluate(model, *args, **kwargs)
+
   def save(self, **kwargs): 
-    '''Arguments: fn_without_extension=None, models_dir=None, optimizer=None, 
-                  **other''' 
+    '''Arguments: 
+      fn_without_extension=None, models_dir=None, optimizer=None, **other
+    ''' 
     self.static_save(self, **kwargs)
 
   @staticmethod
-  def static_save(model, **kwargs):
-    save_model(model, **kwargs)
+  def static_save(model, **kwargs): save_model(model, **kwargs)
 
   def load(self, **kwargs):
     '''Arguments: model, model_path, optimizer=None'''
     return self.static_load(self, **kwargs)
 
   @staticmethod
-  def static_load(model, **kwargs):
-    return load_model(model, **kwargs)
+  def static_load(model, **kwargs): return load_model(model, **kwargs)
 
   # def init_params(self):
   #   self.apply(self._init_layers)

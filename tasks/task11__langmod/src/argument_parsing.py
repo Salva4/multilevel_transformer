@@ -70,19 +70,18 @@ def assert_and_correct_arguments(args):
   for (k, v_list) in false_implies_falsenone.items():
     if not args.__dict__[k]:
       for v in v_list: 
-        print(k, v)
         assert args.__dict__[v] in [None, False]
 
   ## True --> False
-  true_implies_false = {
-    'use_mgrit': ['use_mgopt'],
-    'use_mgopt': ['use_mgrit'],
-  }
-
-  for (k, v) in true_implies_false.items():
-    if args.__dict__[k]:
-      for v in v_list: 
-        assert args.__dict__[v] == False
+  # true_implies_false = {
+  #   'use_mgrit': ['use_mgopt'],
+  #   'use_mgopt': ['use_mgrit'],
+  # }
+  #
+  # for (k, v) in true_implies_false.items():
+  #   if args.__dict__[k]:
+  #     for v in v_list: 
+  #       assert args.__dict__[v] == False
 
   ## Default values
   default_values = {

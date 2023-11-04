@@ -110,7 +110,7 @@ def main():
     num_batch_passes = 2#1#10#100
     args.batch_size = 2
     args.context_window = 5
-    eval_interval = 1
+    eval_interval = 3
     eval_iters = 1
     max_new_tokens = 10
     args.model_dimension = 32
@@ -176,68 +176,46 @@ def main():
   # if k != 0:
   #   print(f'Interpolating weights from previous model to the new one')
   #   interpolate_weights(model, old_model)
-    
+
   torch.manual_seed(seed)
 
   print(f'\n3. Training model w/ {args.num_layers} decoder layers')
   model.train()
   model_save_t0 = time.time()
   train_bf_eval_t0 = time.time()
-  for batch_idx in range(num_batch_passes+1):
-    # batch_start_time = time.time()
-    # print(f'batch_idx {batch_idx}')
 
-    torch.manual_seed(batch_idx)
+  get_training_set_batch = lambda: get_batch(
+    'train', train_data, val_data, args.context_window, args.batch_size, 
+    device,
+  )
+  get_validation_set_batch = lambda: get_batch(
+    'val', train_data, val_data, args.context_window, args.batch_size, 
+    device,
+  )
 
+  for batch_idx in range(num_batch_passes + 1):
+    # torch.manual_seed(batch_idx)
+
+    ## Train
     if batch_idx > 0:
-      t0_batch = time.time()
-      train_batch(
-        model, train_data, val_data, device, optimizer, criterion, 
-        **args.__dict__,
+      output = model.train_(
+        optimizer=optimizer, device=device, criterion=criterion, 
+        get_batch=get_training_set_batch, num_batches=eval_interval,
       )
-      print(f'Batch time: {time.time() - t0_batch}')
+      # loss, accuracy = output['loss'], output['accuracy']
+      # print(f'$training_loss {loss}, training_accuracy {accuracy}')
 
-      # batch_end_time = time.time()
-      # print(f'Batch training time: {batch_end_time - batch_start_time :.2f} seconds')
-
-      ## Save & generate some text every 5 minutes
-      if args.save and time.time() - model_save_t0 > 5*60:
-        t1 = time.time()
-        model.save(
-          fn_without_extension=model_name1, optimizer=optimizer,
-        )
-        model.save(
-          fn_without_extension=model_name2, optimizer=optimizer,
-        )
-        print(f'Models-saving time: {time.time() - t1}')
-
-        model_save_t0 = time.time()
-
-    # every once in a while evaluate the loss on train and val sets
-    if batch_idx % eval_interval == 0 or batch_idx == num_batch_passes:
-      evaluation_t0 = time.time()
-      if batch_idx != 0:
-        print(
-          f'Training time until evaluation: ' + \
-          f'{evaluation_t0 - train_bf_eval_t0}'
-        )
-
-      losses = estimate_loss(
-        model, eval_iters, train_data, val_data, device, criterion, 
-        **args.__dict__,
+    ## Evaluate
+    for mode, get_batch_fun in zip(
+      ['training', 'validation'], 
+      [get_training_set_batch, get_validation_set_batch],
+    ):
+      output = model.evaluate(
+        device=device, criterion=criterion, get_batch=get_batch_fun, 
+        num_batches=200, compute_accuracy=False, print_times=False,
       )
-      print(
-        f"Batch {batch_idx}: train loss {losses['train'] :.8f}, " \
-      + f"val loss {losses['val'] :.8f}"
-      )
-
-      print(f'Evaluation time: {time.time() - evaluation_t0}')
-
-      # generation_t0 = time.time()
-      # print('Generate some text:')
-      # generate_text(m, device, decode, max_new_tokens, **args.__dict__)
-      # print(f'Text-generation time: {time.time() - generation_t0}')
-      train_bf_eval_t0 = time.time()
+      loss, accuracy = output['loss'], output['accuracy']
+      print(f'{mode}_loss {loss}, {mode}_accuracy {accuracy}')
 
   if args.generate:
     print('\n4. Generating text')

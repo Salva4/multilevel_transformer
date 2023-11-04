@@ -33,9 +33,24 @@ class ContinuousModel(nn.Module):
 
   def forward(self, **state): return self.model.static_forward(self, **state)
 
+  def train_(self, **kwargs):
+    '''Arguments: 
+      optimizer, device, criterion, get_batch, num_batches, **fwd_pass_details, 
+      compute_accuracy=False, print_times=False
+    '''
+    return self.model.static_train(self, **kwargs)
+
+  def evaluate(self, **kwargs):
+    '''Arguments: 
+      device, criterion, get_batch, num_batches, compute_accuracy=False, 
+      print_times=False, **fwd_pass_details,
+    '''
+    return self.model.static_evaluate(self, **kwargs)
+
   def save(self, **kwargs): 
-    '''Arguments: fn_without_extension=None, models_dir=None, optimizer=None, 
-                  **other''' 
+    '''Arguments: 
+      fn_without_extension=None, models_dir=None, optimizer=None, **other
+    ''' 
     self.model.static_save(self, **kwargs)
 
   def load(self, **kwargs):
