@@ -2,11 +2,10 @@ from itertools import chain
 import torch
 import sys
 
-from .solve.solve_sequential import solve_sequential
-from .solve.solve_MGRIT import solve_MGRIT
-from .solve.solve_MGOPT import solve_MGOPT
+from .fwd_bwd_pass.solve_sequential import solve_sequential
+from .fwd_bwd_pass.solve_mgrit      import solve_mgrit
 
-sys.path.append('../')
+sys.path.append('..')
 from ode_solvers.ode_solvers import Φ_ForwardEuler
 
 LAYERS_IDX_CONSTANT = {'Forward Euler': 1, 'Heun': 1, 'RK4': 2}
@@ -15,7 +14,7 @@ NUM_LAYERS_INVOLVED = {'Forward Euler': 1, 'Heun': 2, 'RK4': 3}
 
 class GradientFunction(torch.autograd.Function):
   @staticmethod
-  def forward(ctx, x, use_mgrit, use_mgopt, fwd_pass_details):
+  def forward(ctx, x, use_mgrit, fwd_pass_details):
     def F(t, x, **other_F_inputs):
       return ψ[round(t/h*LAYERS_IDX_CONSTANT[solver])](x, **other_F_inputs)
 
@@ -27,13 +26,7 @@ class GradientFunction(torch.autograd.Function):
     fwd_pass_details['F'] = F
     h = T/N
 
-    if use_mgrit and use_mgopt: raise Exception()
-
-    if not use_mgrit and \
-       not use_mgopt: solve = solve_sequential
-    elif   use_mgrit: solve = solve_MGRIT
-    elif   use_mgopt: solve = solve_MGOPT
-
+    solve = solve_sequential if not use_mgrit else solve_mgrit
     y = solve(x, **fwd_pass_details)
 
     ctx.fwd_pass_details = fwd_pass_details

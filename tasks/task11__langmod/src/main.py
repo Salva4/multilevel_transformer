@@ -14,7 +14,7 @@ from argument_parsing import parse_arguments, assert_and_correct_arguments
 from continuous_model.continuous_model import ContinuousModel
 import data
 from model.model import Model
-from utils import estimate_loss, get_batch, train_batch
+from utils import get_batch
 
 # torch.set_default_dtype(torch.float64)
 
@@ -67,7 +67,7 @@ def load_model(model, optimizer, model_name1, model_name2):
     print('Loading model, copy1')
     other_states = model.load(model_name=model_name1, optimizer=optimizer)
     print('other_states', other_states)
-  except: 
+  except:
     try:
       print('Loading model, copy2')
       other_states = model.load(model_name=model_name2, optimizer=optimizer)
@@ -113,14 +113,11 @@ def main():
     eval_interval = 3
     eval_iters = 1
     max_new_tokens = 10
-    args.model_dimension = 32
+    args.model_dimension = 8#32
     args.num_heads = 4
     # args.continuous = True
 
-
   print(args)
-
-  _vars = args.__dict__.copy()
 
   torch.manual_seed(seed)
 
@@ -138,7 +135,7 @@ def main():
     ['model_architectures', args.model_name, 'architecture']
   )
   model = Model(
-    model_architecture_path=model_architecture_path, 
+    model_architecture_path=model_architecture_path,
     num_layers=args.num_layers,
     model_dimension=args.model_dimension,
     num_heads=args.num_heads,
@@ -153,7 +150,7 @@ def main():
   if args.continuous:
     print(' 2.1 Building continuous model')
     model = ContinuousModel(model=model, T=T, solver=args.ode_solver)
-    
+
   # print(model)
 
   m = model.to(device)
@@ -185,11 +182,11 @@ def main():
   train_bf_eval_t0 = time.time()
 
   get_training_set_batch = lambda: get_batch(
-    'train', train_data, val_data, args.context_window, args.batch_size, 
+    'train', train_data, val_data, args.context_window, args.batch_size,
     device,
   )
   get_validation_set_batch = lambda: get_batch(
-    'val', train_data, val_data, args.context_window, args.batch_size, 
+    'val', train_data, val_data, args.context_window, args.batch_size,
     device,
   )
 
@@ -199,20 +196,22 @@ def main():
     ## Train
     if batch_idx > 0:
       output = model.train_(
-        optimizer=optimizer, device=device, criterion=criterion, 
+        optimizer=optimizer, device=device, criterion=criterion,
         get_batch=get_training_set_batch, num_batches=eval_interval,
+        compute_accuracy=False, print_times=False, **args.__dict__,
       )
       # loss, accuracy = output['loss'], output['accuracy']
       # print(f'$training_loss {loss}, training_accuracy {accuracy}')
 
     ## Evaluate
     for mode, get_batch_fun in zip(
-      ['training', 'validation'], 
+      ['training', 'validation'],
       [get_training_set_batch, get_validation_set_batch],
     ):
       output = model.evaluate(
-        device=device, criterion=criterion, get_batch=get_batch_fun, 
-        num_batches=200, compute_accuracy=False, print_times=False,
+        device=device, criterion=criterion, get_batch=get_batch_fun,
+        num_batches=200, compute_accuracy=True, print_times=False,
+        **args.__dict__,
       )
       loss, accuracy = output['loss'], output['accuracy']
       print(f'{mode}_loss {loss}, {mode}_accuracy {accuracy}')

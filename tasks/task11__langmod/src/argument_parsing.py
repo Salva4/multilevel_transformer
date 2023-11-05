@@ -38,6 +38,10 @@ def parse_arguments():
 
   ## MGOPT
   parser.add_argument('--use_mgopt', action='store_true')
+  parser.add_argument('--mgopt_mu', type=int, default=None)
+  parser.add_argument('--mgopt_nu', type=int, default=None)
+  parser.add_argument('--mgopt_num_levels', type=int, default=None)
+  parser.add_argument('--mgopt_num_iterations', type=int, default=None)
 
   ## Debugging, seed and saving
   parser.add_argument('--debug', action='store_true')
@@ -60,11 +64,14 @@ def assert_and_correct_arguments(args):
     'continuous': [
       'T', 'ode_solver', 
       'levels_scheme', 'coarsening_factor', 'interpol',
-      'use_mgrit', 'mgrit_relaxation', 'mgrit_num_iterations',
-      'use_mgopt',
+      'use_mgrit', 'use_mgopt',
     ],
-    'use_mgrit': ['mgrit_relaxation', 'mgrit_num_iterations'],
-    'use_mgopt': [],
+    'use_mgrit': [
+      'mgrit_relaxation', 'mgrit_num_iterations'
+    ],
+    'use_mgopt': [
+      'mgopt_mu', 'mgopt_nu', 'mgopt_num_levels', 'mgopt_num_iterations'
+    ],
   }
 
   for (k, v_list) in false_implies_falsenone.items():
@@ -92,6 +99,10 @@ def assert_and_correct_arguments(args):
     'interpol': 'constant',
     'mgrit_relaxation': 'F',
     'mgrit_num_iterations': 2,
+    'mgopt_mu': 1,
+    'mgopt_nu': 1,
+    'mgopt_num_levels': 2,
+    'mgopt_num_iterations': 1,
   }
 
   for (k, v) in default_values.items():

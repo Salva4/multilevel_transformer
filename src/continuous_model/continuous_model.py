@@ -34,23 +34,23 @@ class ContinuousModel(nn.Module):
   def forward(self, **state): return self.model.static_forward(self, **state)
 
   def train_(self, **kwargs):
-    '''Arguments: 
-      optimizer, device, criterion, get_batch, num_batches, **fwd_pass_details, 
-      compute_accuracy=False, print_times=False
+    '''Arguments:
+      optimizer, device, criterion, get_batch, num_batches,
+      compute_accuracy=False, print_times=False, use_mgopt=False, **details,
     '''
     return self.model.static_train(self, **kwargs)
 
   def evaluate(self, **kwargs):
-    '''Arguments: 
-      device, criterion, get_batch, num_batches, compute_accuracy=False, 
+    '''Arguments:
+      device, criterion, get_batch, num_batches, compute_accuracy=False,
       print_times=False, **fwd_pass_details,
     '''
     return self.model.static_evaluate(self, **kwargs)
 
-  def save(self, **kwargs): 
-    '''Arguments: 
+  def save(self, **kwargs):
+    '''Arguments:
       fn_without_extension=None, models_dir=None, optimizer=None, **other
-    ''' 
+    '''
     self.model.static_save(self, **kwargs)
 
   def load(self, **kwargs):
@@ -68,21 +68,21 @@ class ContinuousModel(nn.Module):
 
   #     if m.bias is not None:
   #       torch.nn.init.constant_(m.bias, 0)
-    
+
   #   if isinstance(m, nn.BatchNorm2d):
   #     if m.weight is not None:
   #       torch.nn.init.constant_(m.weight, 1)
 
   #     if m.bias is not None:
   #       torch.nn.init.constant_(m.bias, 0)
-    
+
   #   if isinstance(m, nn.Linear):
   #     if m.weight is not None:
   #       torch.nn.init.normal_(m.weight)
 
   #     if m.bias is not None:
   #       torch.nn.init.constant_(m.bias, 0)
-    
+
   #   if isinstance(m, nn.MultiheadAttention):
   #     if self.init_method == 'Normal':
   #       m.in_proj_weight.data.normal_(mean=0.0, std=0.02)
@@ -160,14 +160,14 @@ class ContinuousModel(nn.Module):
   #              self.ln3.weight.data.flatten(),
   #              self.ln3.bias.data.flatten(),
   #              self.fc3.weight.data.flatten(),
-  #              self.fc3.bias.data.flatten()), 
+  #              self.fc3.bias.data.flatten()),
   #                     axis=0)
   #   return weights
 
   # def grad_(self):
   #   if self.emb.weight.grad == None:
   #     return None
-      
+
   #   grad = torch.cat((self.emb.weight.grad.flatten(),
   #              torch.cat([torch.cat([self.continuous_block.Rs[n].fc1.weight.grad.flatten(),
   #                    self.continuous_block.Rs[n].fc1.bias.grad.flatten(),
@@ -185,7 +185,7 @@ class ContinuousModel(nn.Module):
   #              self.ln3.weight.grad.flatten(),
   #              self.ln3.bias.grad.flatten(),
   #              self.fc3.weight.grad.flatten(),
-  #              self.fc3.bias.grad.flatten()), 
+  #              self.fc3.bias.grad.flatten()),
   #                     axis=0)
   #   return grad
 
@@ -218,7 +218,7 @@ class ContinuousModel(nn.Module):
   #   #   self.ln3.weight.grad,
   #   #   self.ln3.bias.grad,
   #   #   self.fc3.weight.grad,
-  #   #   self.fc3.bias.grad, 
+  #   #   self.fc3.bias.grad,
   #   # ]
   #   cont_grads = [[self.continuous_block.Rs[n].fc1.weight.grad.flatten(),
   #           self.continuous_block.Rs[n].fc1.bias.grad.flatten(),
@@ -244,7 +244,7 @@ class ContinuousModel(nn.Module):
   #   #           self.ln3.weight.grad.flatten(),
   #   #           self.ln3.bias.grad.flatten(),
   #   #           self.fc3.weight.grad.flatten(),
-  #   #           self.fc3.bias.grad.flatten()), 
+  #   #           self.fc3.bias.grad.flatten()),
   #   #               axis=0)
   #   ## Yes injection:
   #   Rxgrad = torch.cat((self.emb.weight.grad.flatten(),
@@ -254,14 +254,14 @@ class ContinuousModel(nn.Module):
   #             self.ln3.weight.grad.flatten(),
   #             self.ln3.bias.grad.flatten(),
   #             self.fc3.weight.grad.flatten(),
-  #             self.fc3.bias.grad.flatten()), 
+  #             self.fc3.bias.grad.flatten()),
   #                 axis=0)
-  #   #### 
+  #   ####
   #   return Rxgrad
 
   # def add2wgrad(self, dg):
   #   # idx = 0
-    
+
   #   # self.emb.weight.grad.data += dg[idx : idx + 15514*128].reshape(15514, 128)
   #   # idx += 15514*128
 

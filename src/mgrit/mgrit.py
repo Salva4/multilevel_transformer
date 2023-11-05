@@ -16,7 +16,7 @@ def compute_r(u, N, Φ, F, h, **kwargs):
   for i in range(N):  # parallel for
     t = i*h
     a[i+1] = u[i+1].clone() - Φ(t=t, x=u[i], h=h, F=F, **kwargs)
-  
+
   ## r := g - a, with g[0] = u0, g[1:] = 0
   r = -a.clone()
   _ = r[0].zero_()
@@ -58,7 +58,7 @@ def MGRIT(u0, N, T, c, Φ, F, relaxation, num_iterations, **kwargs):
     )
     r = compute_r(u=u, N=N, Φ=Φ, F=F, h=h, **kwargs)
     uΔ, rΔ = restrict_to_coarser_grid(u=u, r=r, c=c)
-    
+
     ## Coarse level: compute coarse grid approximation
     vΔ = coarse_grid_error_approximation(
       uΔ=uΔ, NΔ=NΔ, Φ=Φ, F=F, hΔ=hΔ, rΔ=rΔ, **kwargs,
@@ -89,22 +89,5 @@ def restrict_to_coarser_grid(u, r, c):
   uΔ = u[::c].clone()
   rΔ = r[::c].clone()
   return uΔ, rΔ
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

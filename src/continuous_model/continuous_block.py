@@ -10,7 +10,7 @@ from mgrit.mgrit import MGRIT
 from continuous_model.gradient_function import GradientFunction
 
 ## Debug
-from continuous_model.solve.solve_sequential import solve_sequential
+from continuous_model.fwd_bwd_pass.solve_sequential import solve_sequential
 
 class ContinuousBlock(nn.Module):
   def __init__(self, ψ, N, T, solver, coarsening_factor=2, **kwargs):#, num_levels):#, interpol):
@@ -35,7 +35,7 @@ class ContinuousBlock(nn.Module):
       # self.Φ = Φ_ForwardEuler
       for i in range(self.N): self.ψ.append(ψ[i])  # basis functions
 
-    elif self.solver == 'Heun': 
+    elif self.solver == 'Heun':
       # self.Φ = Φ_Heun
       for i in range(self.N): self.ψ.append(ψ[i])
       self.ψ.append(copy.deepcopy(ψ[-1]))
@@ -48,18 +48,14 @@ class ContinuousBlock(nn.Module):
       self.ψ.append(copy.deepcopy(ψ[-1]))
 
     # self.weights = [
-    #   'fc1.weight', 'fc1.bias', 
-    #   'fc2.weight', 'fc2.bias', 
-    #   'att.in_proj_weight', 'att.in_proj_bias', 'att.out_proj.weight', 'att.out_proj.bias', 
-    #   'ln1.weight', 'ln1.bias', 
+    #   'fc1.weight', 'fc1.bias',
+    #   'fc2.weight', 'fc2.bias',
+    #   'att.in_proj_weight', 'att.in_proj_bias', 'att.out_proj.weight', 'att.out_proj.bias',
+    #   'ln1.weight', 'ln1.bias',
     #   'ln2.weight', 'ln2.bias'
     # ]
 
-  def forward(
-    self, x, level=0, use_mgrit=False, use_mgopt=False, **fwd_pass_details,
-  ):
-    assert use_mgrit + use_mgopt <= 1
-
+  def forward(self, x, level=0, use_mgrit=False, **fwd_pass_details):
     output = {}
 
     N = self.N // self.c**level  #self.Ns[level]
@@ -75,7 +71,7 @@ class ContinuousBlock(nn.Module):
     fwd_pass_details.update(ode_fwd_details)
 
     ## No-debug:
-    x = GradientFunction.apply(x, use_mgrit, use_mgopt, fwd_pass_details)
+    x = GradientFunction.apply(x, use_mgrit, fwd_pass_details)
 
     ## Debug:
     # h = T/N
@@ -157,7 +153,7 @@ class ContinuousBlock(nn.Module):
   #   #   for weight in self.weights:
   #   #     ## t_H --> t_h
   #   #     exec(f'self.Rs[2*n_old].{weight}.data += lr*old_model.continuous_block.Rs[n_old].{weight}.data')
-      
+
   #   #     ## (t_H + t_{H+1})/2(t+1)_h --> t_h
   #   #     # if self.interpol == 'constant' or n_old == old_model.N-1:#2:
   #   #       # exec(f'self.Rs[2*n_old + 1].{weight}.data = old_model.continuous_block.Rs[n_old].{weight}.data')

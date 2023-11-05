@@ -11,7 +11,7 @@ class ContinuousBlock(nn.Module):
     super().__init__()
     self.num_layers = num_layers
     self.layers = nn.ModuleList(
-      [ContinuousLayer(ResidualLayer=ResidualLayer, seed=0,#i, 
+      [ContinuousLayer(ResidualLayer=ResidualLayer, seed=0,#i,
                                                   **kwargs) \
        for i in range(self.num_layers)]
     )
@@ -33,13 +33,13 @@ class ContinuousLayer(nn.Module):
 ##
 # Transformer encoder layer using their code's scheme & <i>MultiheadAttention</i>
 class Model(nn.Module):
-  def __init__(self, model_architecture_path, num_layers, 
-               seed_precontinuous_block=None, seed_postcontinuous_block=None, 
+  def __init__(self, model_architecture_path, num_layers,
+               seed_precontinuous_block=None, seed_postcontinuous_block=None,
                **kwargs):
     super().__init__()
     architecture_module = importlib.import_module(model_architecture_path)
 
-    # if seed_precontinuous_block is not None: 
+    # if seed_precontinuous_block is not None:
     #   torch.manual_seed(seed_precontinuous_block)
     torch.manual_seed(0)
     self.precontinuous_block = architecture_module.PreContinuousBlock(
@@ -61,7 +61,7 @@ class Model(nn.Module):
     #   print('initializing parameters')
     #   self.init_params()
 
-  def forward(self, **state): 
+  def forward(self, **state):
     return self.static_forward(self, **state)
 
   @staticmethod
@@ -70,7 +70,7 @@ class Model(nn.Module):
   ):
     if target is not None or criterion is not None:
       assert target is not None and criterion is not None
-    if compute_accuracy: 
+    if compute_accuracy:
       assert target is not None and isinstance(criterion, nn.CrossEntropyLoss)
 
     state['x'] = input
@@ -83,7 +83,7 @@ class Model(nn.Module):
       if isinstance(criterion, nn.CrossEntropyLoss):
         logits = state['x']
         loss = criterion(
-          logits.view(-1, logits.shape[-1]), 
+          logits.view(-1, logits.shape[-1]),
           target.view(-1),
         )
         state['logits'] = logits
@@ -113,31 +113,33 @@ class Model(nn.Module):
     return state
 
   def train_(self, *args, **kwargs):
-    '''Arguments: 
-      optimizer, device, criterion, get_batch, num_batches, **fwd_pass_details, 
-      compute_accuracy=False, print_times=False
+    '''Arguments:
+      optimizer, device, criterion, get_batch, num_batches,
+      compute_accuracy=False, print_times=False, use_mgopt=False (!),
+      **details,
     '''
+    assert not kwargs.get('use_mgopt', False)
     return self.static_train(self, *args, **kwargs)
 
   @staticmethod
-  def static_train(model, *args, **kwargs): 
+  def static_train(model, *args, **kwargs):
     return train(model, *args, **kwargs)
 
   def evaluate(self, *args, **kwargs):
-    '''Arguments: 
-      device, criterion, get_batch, num_batches, compute_accuracy=False, 
+    '''Arguments:
+      device, criterion, get_batch, num_batches, compute_accuracy=False,
       print_times=False, **fwd_pass_details,
     '''
     return self.static_evaluate(self, *args, **kwargs)
 
   @staticmethod
-  def static_evaluate(model, *args, **kwargs): 
+  def static_evaluate(model, *args, **kwargs):
     return evaluate(model, *args, **kwargs)
 
-  def save(self, **kwargs): 
-    '''Arguments: 
+  def save(self, **kwargs):
+    '''Arguments:
       fn_without_extension=None, models_dir=None, optimizer=None, **other
-    ''' 
+    '''
     self.static_save(self, **kwargs)
 
   @staticmethod
@@ -161,21 +163,21 @@ class Model(nn.Module):
 
   #     if m.bias is not None:
   #       torch.nn.init.constant_(m.bias, 0)
-    
+
   #   if isinstance(m, nn.BatchNorm2d):
   #     if m.weight is not None:
   #       torch.nn.init.constant_(m.weight, 1)
 
   #     if m.bias is not None:
   #       torch.nn.init.constant_(m.bias, 0)
-    
+
   #   if isinstance(m, nn.Linear):
   #     if m.weight is not None:
   #       torch.nn.init.normal_(m.weight)
 
   #     if m.bias is not None:
   #       torch.nn.init.constant_(m.bias, 0)
-    
+
   #   if isinstance(m, nn.MultiheadAttention):
   #     print(f'Init method: {self.init_method}')
   #     if self.init_method == 'Normal':

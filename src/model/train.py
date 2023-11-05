@@ -3,13 +3,17 @@ import os
 import sys
 import torch
 
-sys.path.append(os.path.join('..', '..', '..', 'src', 'utils'))
-from monitoring import time_
+sys.path.append('../../../src/')
+from mgopt.mgopt import _MGOPT as train_mgopt
+from _utils.monitoring import time_
+
+# sys.path.append(os.path.join('..', 'continuous_model'))
+# from continuous_model import ContinuousModel
 
 class AccuracyCounter: correct = 0; total = 0
 
 def prepare_inputs(
-  get_batch, device, criterion, compute_accuracy, fwd_pass_details,
+  get_batch, device, criterion, compute_accuracy, details,
 ):
     batch, get_batch_time = time_(get_batch)
 
@@ -17,21 +21,19 @@ def prepare_inputs(
     input, target = input.to(device), target.to(device)
 
     model_inputs = {
-      'input': input, 'target': target, 'criterion': criterion, 
+      'input': input, 'target': target, 'criterion': criterion,
       'compute_accuracy': compute_accuracy,
     }
-    model_inputs.update(fwd_pass_details)
+    model_inputs.update(details)
 
     return model_inputs, get_batch_time
 
-def forward_pass(
-  model, model_inputs, losses, compute_accuracy, accuracy_counter,
-):
+def forward_pass(model, model_inputs, losses, accuracy_counter):
   model_outputs, batch_fwd_time = time_(model, **model_inputs)
   loss = model_outputs['loss']
   losses.append(loss.item())
 
-  if compute_accuracy: 
+  if model_inputs['compute_accuracy']:
     accuracy_counter.correct += model_outputs['correct']
     accuracy_counter.total += model_outputs['total']
 
@@ -52,7 +54,7 @@ def print_times_(*times, mode):
   elif mode == 'evaluation':
     batch_fwd_time = times
     print(f'Evaluation batch fwd pass time: {batch_fwd_time} seconds')
-  else: raise Exception()    
+  else: raise Exception()
 
 def update_output_loss_and_accuracy(
   output, losses, accuracy_counter, compute_accuracy,
@@ -61,24 +63,45 @@ def update_output_loss_and_accuracy(
   output['accuracy'] = accuracy_counter.correct/accuracy_counter.total \
                        if compute_accuracy else None
 
-def train(
-  model, optimizer, device, criterion, get_batch, num_batches, 
-  compute_accuracy=False, print_times=False, **fwd_pass_details,
+def train_conventional(
+  prepare_inputs, forward_pass, backward_pass, num_batches, print_times,
 ):
+  for batch_idx in range(num_batches):
+    model_inputs, get_batch_time = prepare_inputs()
+    loss, accuracy_counter, batch_fwd_time = forward_pass(model_inputs)
+    batch_bwd_time = backward_pass(loss)
+    if print_times: print_times_(batch_fwd_time, batch_bwd_time, 'training')
+
+def train(
+  model, optimizer, device, criterion, get_batch, num_batches,
+  compute_accuracy=False, print_times=False, use_mgopt=False, **details,
+):
+  # if use_mgopt: assert isinstance(model, ContinuousModel)
+
   output = {}
   model.train()
   losses = []
   accuracy_counter = AccuracyCounter()
 
-  for batch_idx in range(num_batches):
-    model_inputs, get_batch_time = prepare_inputs(
-      get_batch, device, criterion, compute_accuracy, fwd_pass_details,
+  _prepare_inputs = lambda: prepare_inputs(
+    get_batch, device, criterion, compute_accuracy, details,
+  )
+  _forward_pass = lambda model_inputs: forward_pass(
+    model, model_inputs, losses, accuracy_counter,
+  )
+  _backward_pass = lambda loss: backward_pass(optimizer, loss)
+
+  if not use_mgopt:
+    train_conventional(
+      prepare_inputs=_prepare_inputs, forward_pass=_forward_pass,
+      backward_pass=_backward_pass, num_batches=num_batches,
+      print_times=print_times,
     )
-    loss, accuracy_counter, batch_fwd_time = forward_pass(
-      model, model_inputs, losses, compute_accuracy, accuracy_counter,
+  else:
+    train_mgopt(
+      model=model, optimizer=optimizer, prepare_inputs=_prepare_inputs,
+      num_batches=num_batches, losses=losses, **details,
     )
-    batch_bwd_time = backward_pass(optimizer, loss)
-    if print_times: print_times_(batch_fwd_time, batch_bwd_time, 'training')
 
   update_output_loss_and_accuracy(
     output, losses, accuracy_counter, compute_accuracy,
@@ -87,8 +110,8 @@ def train(
 
 @torch.no_grad()
 def evaluate(
-  model, device, criterion, get_batch, num_batches, compute_accuracy=False, 
-  print_times=False, **fwd_pass_details,
+  model, device, criterion, get_batch, num_batches, compute_accuracy=False,
+  print_times=False, **details,
 ):
   output = {}
   model.eval()
@@ -98,10 +121,10 @@ def evaluate(
   for batch_idx in range(num_batches):
     torch.manual_seed(-(batch_idx+1))
     model_inputs, get_batch_time = prepare_inputs(
-      get_batch, device, criterion, compute_accuracy, fwd_pass_details,
+      get_batch, device, criterion, compute_accuracy, details,
     )
     loss, accuracy_counter, batch_fwd_time = forward_pass(
-      model, model_inputs, losses, compute_accuracy, accuracy_counter,
+      model, model_inputs, losses, accuracy_counter,
     )
     if print_times: print_times_(batch_fwd_time, 'evaluation')
 
@@ -109,15 +132,5 @@ def evaluate(
     output, losses, accuracy_counter, compute_accuracy,
   )
   return output
-
-
-
-
-
-
-
-
-
-
 
 

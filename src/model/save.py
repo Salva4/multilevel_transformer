@@ -17,10 +17,10 @@ def load_model(model, model_name, models_dir=None, optimizer=None):
   if models_dir is None: models_dir = find_models_dir()
   model_path = os.path.join(models_dir, model_name)
 
-  if not os.path.exists(model_path): 
+  if not os.path.exists(model_path):
     # print('The model could not be loaded because the path does not exist.')
     return {'error': 'The path does not exist.'}
-  
+
   model_state = torch.load(model_path)
 
   model.load_state_dict(model_state.pop('model_state'))
@@ -32,7 +32,7 @@ def load_model(model, model_name, models_dir=None, optimizer=None):
 
   return model_state
 
-def save_model(model, fn_without_extension=None, models_dir=None, 
+def save_model(model, fn_without_extension=None, models_dir=None,
                optimizer=None, **other):
   fn = (
     fn_without_extension if fn_without_extension is not None else \
@@ -44,7 +44,7 @@ def save_model(model, fn_without_extension=None, models_dir=None,
   model_state = {}
   model_state['model_state'] = model.state_dict()
 
-  if optimizer is not None: 
+  if optimizer is not None:
     model_state['optimizer_state'] = optimizer.state_dict()
 
   model_state.update(other)
