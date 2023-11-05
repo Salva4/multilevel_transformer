@@ -46,7 +46,8 @@ def apply_first_order_correction(model, dldΘ, level, c):
       p.grad += dldθ
 
 def run_cycle(
-  model, optimizer, prepare_inputs, num_batches, mu, nu, num_levels, c,
+  model, optimizer, prepare_inputs, num_batches, mu, nu, num_levels, c, 
+  multilevel_interpolation,
 ):
   dldΘ_register = [None]*num_levels
   for level in range(num_levels - 1):
@@ -67,6 +68,10 @@ def run_cycle(
     )
 
   for level in range(num_levels - 2, -1, -1):
+    model.continuous_block.interpolate_weights(
+      level, multilevel_interpolation,
+    )
+
     for postsmoothing_iteration in range(nu):
       loss = train_miniepoch(
         model, optimizer, prepare_inputs, num_batches, level, c,
@@ -76,23 +81,27 @@ def run_cycle(
   return loss
 
 def _MGOPT(
-  mgopt_mu, mgopt_nu, mgopt_num_levels, mgopt_num_iterations, *args, **kwargs,
+  mgopt_mu, mgopt_nu, mgopt_num_levels, mgopt_cycle, mgopt_num_iterations, 
+  *args, **kwargs,
 ):
   return MGOPT(
-    mu=mgopt_mu, nu=mgopt_nu, num_levels=mgopt_num_levels,
+    mu=mgopt_mu, nu=mgopt_nu, num_levels=mgopt_num_levels, cycle=mgopt_cycle,
     num_iterations=mgopt_num_iterations, *args, **kwargs,
   )
 
 def MGOPT(
-  model, optimizer, prepare_inputs, num_batches, mu, nu, num_levels,
-  num_iterations, losses, **kwargs,
+  model, optimizer, prepare_inputs, num_batches, mu, nu, num_levels, cycle,
+  multilevel_interpolation, num_iterations, losses, **kwargs,
 ):
   c = model.continuous_block.c
   model.train()
 
+  if cycle != 'V': raise Exception('F-cycle not implemented yet.')
+
   for iteration in range(num_iterations):
     loss = run_cycle(
-      model, optimizer, prepare_inputs, num_batches, mu, nu, num_levels, c,
+      model, optimizer, prepare_inputs, num_batches, mu, nu, num_levels, c, 
+      multilevel_interpolation,
     )
     losses.append(loss.item())
 

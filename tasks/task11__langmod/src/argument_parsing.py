@@ -29,7 +29,7 @@ def parse_arguments():
   ## Multilevel
   parser.add_argument('--levels_scheme', type=str, default=None, help='2_1_2_1_0_...')
   parser.add_argument('--coarsening_factor', type=int, default=None)
-  parser.add_argument('--interpol', type=str, default=None)  # <-- always 'linear' in MG/OPT: I, R
+  parser.add_argument('--multilevel_interpolation', type=str, default=None)  # <-- always 'linear' in MG/OPT: I, R
 
   ## MGRIT
   parser.add_argument('--use_mgrit', action='store_true')
@@ -41,6 +41,7 @@ def parse_arguments():
   parser.add_argument('--mgopt_mu', type=int, default=None)
   parser.add_argument('--mgopt_nu', type=int, default=None)
   parser.add_argument('--mgopt_num_levels', type=int, default=None)
+  parser.add_argument('--mgopt_cycle', type=str, default=None)
   parser.add_argument('--mgopt_num_iterations', type=int, default=None)
 
   ## Debugging, seed and saving
@@ -63,14 +64,13 @@ def assert_and_correct_arguments(args):
   false_implies_falsenone = {
     'continuous': [
       'T', 'ode_solver', 
-      'levels_scheme', 'coarsening_factor', 'interpol',
+      'levels_scheme', 'coarsening_factor', 'multilevel_interpolation',
       'use_mgrit', 'use_mgopt',
     ],
-    'use_mgrit': [
-      'mgrit_relaxation', 'mgrit_num_iterations'
-    ],
+    'use_mgrit': ['mgrit_relaxation', 'mgrit_num_iterations'],
     'use_mgopt': [
-      'mgopt_mu', 'mgopt_nu', 'mgopt_num_levels', 'mgopt_num_iterations'
+      'mgopt_mu', 'mgopt_nu', 'mgopt_num_levels', 'mgopt_cycle', 
+      'mgopt_num_iterations',
     ],
   }
 
@@ -96,12 +96,13 @@ def assert_and_correct_arguments(args):
     'ode_solver': 'Forward Euler',
     'levels_scheme': '0',
     'coarsening_factor': 2,
-    'interpol': 'constant',
+    'multilevel_interpolation': 'constant',
     'mgrit_relaxation': 'F',
     'mgrit_num_iterations': 2,
     'mgopt_mu': 1,
     'mgopt_nu': 1,
     'mgopt_num_levels': 2,
+    'mgopt_cycle': 'V',
     'mgopt_num_iterations': 1,
   }
 

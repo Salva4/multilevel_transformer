@@ -85,207 +85,57 @@ class ContinuousBlock(nn.Module):
 
     return output
 
-  # def init_weights_from_model(self, old_model):
-  #   self.interpolate_weights_from(old_model)
+  def interpolate_weights(self, level, interpolation):
+    c = self.c
+    ψ_fine = self.ψ[::c**level]
+    # ψ_coarse = self.ψ[::c**(level+1)]
 
-  # def interpolate_weights_from(self, old_model, lr):  # here old_model is coarser
-  #   gen_params = old_model.parameters()
+    if interpolation == 'constant':
+      for i in range(c, len(ψ_fine), c):
+        _ψ_coarse1 = ψ_fine[i-c]
+        # _ψ_coarse2 = ψ_fine[i]
 
-  #   for _ in range(1):
-  #     _ = next(gen_params)
+        for ii in range(1, c):
+          _ψ_to_interpolate = ψ_fine[i - c + ii]
+          for p_c1, p_to_interpolate in zip(
+            _ψ_coarse1.parameters(), _ψ_to_interpolate.parameters(),
+          ):
+            p_to_interpolate.data = p_c1.data
 
-  #   ## Constant. Later change to linear
-  #   for n_coarse in range(old_model.N):
-  #     weights = next(gen_params).data
-  #     self.Rs[2*n_coarse].fc1.weight.data += lr * weights
-  #     self.Rs[2*n_coarse + 1].fc1.weight.data += lr * weights
+      while i < len(ψ_fine) - 1:
+        for p_last, p_to_interpolate in zip(
+          ψ_fine[i].parameters(), ψ_fine[i+1].parameters(),
+        ):
+          p_to_interpolate.data = p_last.data
 
-  #     weights = next(gen_params).data
-  #     self.Rs[2*n_coarse].fc1.bias.data += lr * weights
-  #     self.Rs[2*n_coarse + 1].fc1.bias.data += lr * weights
+        i += 1
 
-  #     weights = next(gen_params).data
-  #     self.Rs[2*n_coarse].fc2.weight.data += lr * weights
-  #     self.Rs[2*n_coarse + 1].fc2.weight.data += lr * weights
+    elif interpolation == 'linear':
+      for i in range(c, len(ψ_fine), c):
+        _ψ_coarse1 = ψ_fine[i-c]
+        _ψ_coarse2 = ψ_fine[i]
 
-  #     weights = next(gen_params).data
-  #     self.Rs[2*n_coarse].fc2.bias.data += lr * weights
-  #     self.Rs[2*n_coarse + 1].fc2.bias.data += lr * weights
+        for ii in range(1, c):
+          _ψ_to_interpolate = ψ_fine[i - c + ii]
+          for p_c1, p_c2, p_to_interpolate in zip(
+            _ψ_coarse1.parameters(),
+            _ψ_coarse2.parameters(),
+            _ψ_to_interpolate.parameters(),
+          ):
+            p_to_interpolate.data = (1 - ii/c)*p_c1.data + (ii/c)*p_c2.data
 
-  #     weights = next(gen_params).data
-  #     self.Rs[2*n_coarse].att.in_proj_weight.data += lr * weights
-  #     self.Rs[2*n_coarse + 1].att.in_proj_weight.data += lr * weights
+      while i < len(ψ_fine) - 1:
+        for p_lastbutone, p_last, p_to_interpolate in zip(
+          ψ_fine[i-1].parameters(),
+          ψ_fine[i  ].parameters(),
+          ψ_fine[i+1].parameters(),
+        ):
+          p_to_interpolate.data = \
+            p_last.data + (p_last.data - p_lastbutone.data)
 
-  #     weights = next(gen_params).data
-  #     self.Rs[2*n_coarse].att.in_proj_bias.data += lr * weights
-  #     self.Rs[2*n_coarse + 1].att.in_proj_bias.data += lr * weights
+        i += 1
 
-  #     weights = next(gen_params).data
-  #     self.Rs[2*n_coarse].att.out_proj.weight.data += lr * weights
-  #     self.Rs[2*n_coarse + 1].att.out_proj.weight.data += lr * weights
+    else: raise Exception()  # add: quadratic splines & cubic splines
 
-  #     weights = next(gen_params).data
-  #     self.Rs[2*n_coarse].att.out_proj.bias.data += lr * weights
-  #     self.Rs[2*n_coarse + 1].att.out_proj.bias.data += lr * weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[2*n_coarse].ln1.weight.data += lr * weights
-  #     self.Rs[2*n_coarse + 1].ln1.weight.data += lr * weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[2*n_coarse].ln1.bias.data += lr * weights
-  #     self.Rs[2*n_coarse + 1].ln1.bias.data += lr * weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[2*n_coarse].ln2.weight.data += lr * weights
-  #     self.Rs[2*n_coarse + 1].ln2.weight.data += lr * weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[2*n_coarse].ln2.bias.data += lr * weights
-  #     self.Rs[2*n_coarse + 1].ln2.bias.data += lr * weights
-
-  #   for _ in range(4):
-  #     _ = next(gen_params)
-
-  #   assert next(gen_params, None) == None
-
-  #   # for n_old in range(old_model.N):  # we undermine the last function weights
-  #   #   for weight in self.weights:
-  #   #     ## t_H --> t_h
-  #   #     exec(f'self.Rs[2*n_old].{weight}.data += lr*old_model.continuous_block.Rs[n_old].{weight}.data')
-
-  #   #     ## (t_H + t_{H+1})/2(t+1)_h --> t_h
-  #   #     # if self.interpol == 'constant' or n_old == old_model.N-1:#2:
-  #   #       # exec(f'self.Rs[2*n_old + 1].{weight}.data = old_model.continuous_block.Rs[n_old].{weight}.data')
-  #   #       # raise Exception('constant interpolation has been removed')
-  #   #     # elif self.interpol == 'linear':
-  #   #     exec(f'self.Rs[2*n_old + 1].{weight}.data += lr*(' \
-  #   #       + f'1/2*(old_model.continuous_block.Rs[n_old].{weight}.data + ' \
-  #   #       + f'old_model.continuous_block.Rs[n_old+1].{weight}.data))')
-  #   #     # else:
-  #   #       # raise Exception('unknown interpolation modality')
-
-  # def restrict_weights_from(self, old_model):    # here old_model is finer
-  #   gen_params = old_model.parameters()
-
-  #   for _ in range(1):
-  #     _ = next(gen_params)
-
-  #   ## Constant. Later change to linear
-  #   for n_coarse in range(self.N):
-  #     weights = next(gen_params).data
-  #     self.Rs[n_coarse].fc1.weight.data += weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n_coarse].fc1.bias.data += weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n_coarse].fc2.weight.data += weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n_coarse].fc2.bias.data += weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n_coarse].att.in_proj_weight.data += weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n_coarse].att.in_proj_bias.data += weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n_coarse].att.out_proj.weight.data += weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n_coarse].att.out_proj.bias.data += weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n_coarse].ln1.weight.data += weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n_coarse].ln1.bias.data += weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n_coarse].ln2.weight.data += weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n_coarse].ln2.bias.data += weights
-
-  #     for _ in range(12):
-  #       _ = next(gen_params)
-
-  #   for _ in range(4):
-  #     _ = next(gen_params)
-
-  #   assert next(gen_params, None) == None
-
-  #   # # print(f'self.N {self.N} \t old_model.N {old_model.N}')
-  #   # for n in range(self.N):    # we undermine the last function weights
-  #   #   # print(f'n {n}')
-  #   #   for weight in self.weights:
-  #   #     ## t_H --> t_h
-  #   #     exec(
-  #   #       f'self.Rs[n].{weight}.data = 1/2 * (' \
-  #   #       + (f'1/2*(old_model.continuous_block.Rs[2*n - 1].{weight}.data.clone()) + ' if n > 0 else '') \
-  #   #       + f'old_model.continuous_block.Rs[2*n].{weight}.data.clone()' \
-  #   #       + (f' + 1/2*(old_model.continuous_block.Rs[2*n + 1].{weight}.data.clone())' if n < old_model.N else '') \
-  #   #       + f')'
-  #   #     )
-
-  # def update_diff_weights(self, old_model):
-  #   assert old_model.N == self.N
-
-  #   gen_params = old_model.parameters()
-
-  #   for _ in range(1):
-  #     _ = next(gen_params)
-
-  #   ## Constant. Later change to linear
-  #   for n in range(self.N):
-  #     weights = next(gen_params).data
-  #     self.Rs[n].fc1.weight.data -= weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n].fc1.bias.data -= weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n].fc2.weight.data -= weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n].fc2.bias.data -= weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n].att.in_proj_weight.data -= weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n].att.in_proj_bias.data -= weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n].att.out_proj.weight.data -= weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n].att.out_proj.bias.data -= weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n].ln1.weight.data -= weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n].ln1.bias.data -= weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n].ln2.weight.data -= weights
-
-  #     weights = next(gen_params).data
-  #     self.Rs[n].ln2.bias.data -= weights
-
-  #   for _ in range(4):
-  #     _ = next(gen_params)
-
-  #   assert next(gen_params, None) == None
-
-  #   # for n_old in range(old_model.N):
-  #   #   for weight in self.weights:
-  #   #     ## t_H --> t_h
-  #   #     exec(
-  #   #       f'self.Rs[n_old].{weight}.data -= old_model.continuous_block.Rs[n_old].{weight}.data'
-  #   #     )
 
 
