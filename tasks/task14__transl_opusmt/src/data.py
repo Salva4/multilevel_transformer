@@ -30,7 +30,7 @@ def obtain_data(_vars):
 
     print(f'Obtaining "{mode}" data')
     for i, (line_src, line_tgt) in enumerate(tqdm.tqdm(zip(path_src, path_tgt))):
-      if _vars.debug and i > 20000: break
+      if _vars.debug and i > 2000: break
       ds[mode]['translation'].append(
         {
           lang_src: line_src.strip(),
@@ -45,7 +45,7 @@ def obtain_data(_vars):
   ds_dict = ds_dict.map(
     lambda partition: φ_preprocess(partition, _vars.tokenizer), 
     batched=True
-  ).with_format('torch', device=_vars.dev)
+  ).with_format('torch', device=_vars.device)
 
   dl = {}
   dl['train'] = DataLoader(

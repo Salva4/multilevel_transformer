@@ -1,13 +1,12 @@
 import numpy as np
-import torch
 import torch.nn as nn
 
 class MultiHeadAttention(nn.Module):
-  def __init__(self, _vars):
+  def __init__(self, model_dimension, num_heads):
     super().__init__()
 
-    self.d = _vars.d
-    self.num_heads = _vars.num_heads
+    self.d = model_dimension
+    self.num_heads = num_heads
     self.dim_keys = self.d // self.num_heads
     self.dim_values = self.dim_keys
 

@@ -11,7 +11,7 @@ class ContinuousBlock(nn.Module):
     super().__init__()
     self.num_layers = num_layers
     self.layers = nn.ModuleList(
-      [ContinuousLayer(ResidualLayer=ResidualLayer, seed=0,#i,
+      [ContinuousLayer(ResidualLayer=ResidualLayer, #seed=0,#i,
                                                   **kwargs) \
        for i in range(self.num_layers)]
     )
@@ -23,7 +23,7 @@ class ContinuousBlock(nn.Module):
 class ContinuousLayer(nn.Module):
   def __init__(self, ResidualLayer, seed=None, **kwargs):
     super().__init__()
-    if seed is not None: torch.manual_seed(seed)
+    # if seed is not None: torch.manual_seed(seed)
 
     self.residual_layer = ResidualLayer(**kwargs)
 
@@ -33,31 +33,52 @@ class ContinuousLayer(nn.Module):
 ##
 # Transformer encoder layer using their code's scheme & <i>MultiheadAttention</i>
 class Model(nn.Module):
-  def __init__(self, model_architecture_path, num_layers,
-               seed_precontinuous_block=None, seed_postcontinuous_block=None,
-               **kwargs):
+  def __init__(self, model_name, continuous_blocks_num_layers, **kwargs):
+               # seed_precontinuous_block=None, seed_postcontinuous_block=None,
     super().__init__()
-    architecture_module = importlib.import_module(model_architecture_path)
 
+    model_architecture_path = '.'.join(
+      ['model_architectures', model_name, 'architecture']
+    )
+
+    ## Pre-continuous block
+    precontinuous_block_module = importlib.import_module(
+      '.'.join([model_architecture_path, 'precontinuous_block'])
+    )
     # if seed_precontinuous_block is not None:
     #   torch.manual_seed(seed_precontinuous_block)
-    torch.manual_seed(0)
-    self.precontinuous_block = architecture_module.PreContinuousBlock(
-      **kwargs,
-    )
-    self.continuous_block = ContinuousBlock(
-      ResidualLayer=architecture_module.ContinuousResidualLayer,
-      num_layers=num_layers,
-      **kwargs,
+    # torch.manual_seed(0)
+    self.precontinuous_block = \
+      precontinuous_block_module.PreContinuousBlock(**kwargs)
+
+    ## Continuous block
+    num_continuous_blocks = len(continuous_blocks_num_layers)
+    self.continuous_blocks = nn.ModuleList()
+
+    for continuous_block_idx in range(num_continuous_blocks):
+      continuous_block_module = importlib.import_module('.'.join(
+        [model_architecture_path, f'continuous_block_{continuous_block_idx+1}']
+      ))
+      num_layers = continuous_blocks_num_layers[continuous_block_idx]
+      continuous_block = ContinuousBlock(
+        ResidualLayer=continuous_block_module.ContinuousResidualLayer,
+        num_layers=num_layers,
+        **kwargs,
+      )
+      self.continuous_blocks.append(continuous_block)
+
+    ## Post-continuous block
+    postcontinuous_block_module = importlib.import_module(
+      '.'.join([model_architecture_path, 'postcontinuous_block'])
     )
     # if seed_postcontinuous_block is not None:
     #   torch.manual_seed(seed_postcontinuous_block)
-    torch.manual_seed(0)
-    self.postcontinuous_block = architecture_module.PostContinuousBlock(
-      **kwargs,
-    )
-    ## Continuous block
-    # if init_method.lower() != 'none':
+    # torch.manual_seed(0)
+    self.postcontinuous_block = \
+      postcontinuous_block_module.PostContinuousBlock(**kwargs)
+    
+    ## Weights initialization
+    # if initialize_parameters:
     #   print('initializing parameters')
     #   self.init_params()
 
@@ -73,11 +94,16 @@ class Model(nn.Module):
     if compute_accuracy:
       assert target is not None and isinstance(criterion, nn.CrossEntropyLoss)
 
-    state['x'] = input
-    state['y'] = target
+    state['x'] = state['input' ] = input
+    state['y'] = state['target'] = target
+
+    ## Forward pass
     state.update(model.precontinuous_block (**state))
-    state.update(model.continuous_block    (**state))
+    for continuous_block in model.continuous_blocks:
+      state.update(model.continuous_block  (**state))
     state.update(model.postcontinuous_block(**state))
+    
+    target = state['target']
 
     if target is not None:
       if isinstance(criterion, nn.CrossEntropyLoss):

@@ -15,15 +15,19 @@ class ContinuousModel(nn.Module):
     # self.interpol = kwargs['interpol']
 
     self.precontinuous_block  = self.model.precontinuous_block
-    self.postcontinuous_block = self.model.postcontinuous_block
-
-    self.continuous_block = ContinuousBlock(
-      ψ=nn.ModuleList(
-        [layer.residual_layer for layer in model.continuous_block.layers]
-      ),
-      N=self.model.continuous_block.num_layers,
-      **kwargs_continuous_block,
+    self.continuous_blocks = nn.ModuleList(
+      [
+        ContinuousBlock(
+          ψ=nn.ModuleList(
+            [layer.residual_layer for layer in continuous_block.layers]
+          ),
+          N=continuous_block.num_layers,
+          **kwargs_continuous_block,
+        )
+      ] for continuous_block in self.model.continuous_blocks
     )
+    self.postcontinuous_block = self.model.postcontinuous_block
+    
       # interpol=self.interpol,
 
     # if self.init_method != 'None':

@@ -5,7 +5,7 @@ import torch
 
 sys.path.append('../../../src/')
 from mgopt.mgopt import _MGOPT as train_mgopt
-from _utils.monitoring import time_
+from src_utils.monitoring import time_
 
 # sys.path.append(os.path.join('..', 'continuous_model'))
 # from continuous_model import ContinuousModel

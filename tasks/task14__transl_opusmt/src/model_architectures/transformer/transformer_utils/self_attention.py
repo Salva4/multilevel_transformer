@@ -1,12 +1,12 @@
 import torch
 import torch.nn as nn
 
-from model.multihead_attention import MultiHeadAttention
+from .multihead_attention import MultiHeadAttention
 
 class SelfAttention(nn.Module):
-  def __init__(self, _vars):
+  def __init__(self, model_dimension, num_heads):
     super().__init__()
-    self.attn = MultiHeadAttention(_vars)
+    self.attn = MultiHeadAttention(model_dimension, num_heads)
 
   def forward(self, x, mask_pad=None, add_mask_attn=False):  # x: [b, L, d]
     L = x.shape[1]
@@ -20,5 +20,6 @@ class SelfAttention(nn.Module):
       _Q=x,
       mask_attn=mask_attn,
       mask_pad=mask_pad,
-    )
+    )  # out: [b, L, d]
+    
     return out

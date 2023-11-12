@@ -15,6 +15,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 print('Importing local files')
 from data import obtain_data#*
+from model.transformer import Transformer
 from train import evaluate_bleu#*
 
 print('Parsing arguments')
@@ -25,6 +26,7 @@ parser.add_argument('--debug', action='store_true')
 parser.add_argument('--dim_ff', type=int, default=2048)
 parser.add_argument('--lr', type=float, default=1e-4)
 parser.add_argument('--num_epochs', type=int, default=2)
+parser.add_argument('--num_heads', type=int, default=8)
 parser.add_argument('--num_layers_decoder', type=int, default=6)
 parser.add_argument('--num_layers_encoder', type=int, default=6)
 parser.add_argument('--norm_first', type=bool, default=False)
@@ -41,14 +43,23 @@ def main():
   _vars.name_model = "Helsinki-NLP/opus-mt-en-de"
   print('Loading tokenizer')
   _vars.tokenizer = AutoTokenizer.from_pretrained(_vars.name_model)
-  print('Loading pre-trained model')
-  _vars.model = AutoModelForSeq2SeqLM.from_pretrained(_vars.name_model).to(_vars.dev)
+
+  _vars.pad_id = _vars.tokenizer.pad_token_id
+  _vars.bos_id = _vars.pad_id
+  _vars.eos_id = _vars.tokenizer.eos_token_id
 
   print('Loading data')
   obtain_data(_vars)
   print(f"Number of samples: train, {len(_vars.dl['train'])}; test, {len(_vars.dl['test'])}.")
 
-  _vars.pad_id = _vars.tokenizer.pad_token_id
+  print('Loading pre-trained model')
+  _vars.pretrained_model = AutoModelForSeq2SeqLM.from_pretrained(_vars.name_model)
+  _vars.model = Transformer(_vars)
+  _vars.model.copy_weights(_vars.pretrained_model)
+  
+  self, model = _vars.model, _vars.pretrained_model
+  _vars.model.generate = _vars.pretrained_model.generate
+  
   _vars.loss_function = nn.CrossEntropyLoss(ignore_index=_vars.pad_id)
   _vars.optimizer = torch.optim.Adam(_vars.model.parameters(), lr=_vars.lr)
 

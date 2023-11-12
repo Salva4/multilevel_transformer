@@ -9,11 +9,11 @@ from torch.nn import functional as F
 import sys
 
 sys.path.append('../../../src/')
+from model.model import Model
+from continuous_model.continuous_model import ContinuousModel
 
 from argument_parsing import parse_arguments, assert_and_correct_arguments
-from continuous_model.continuous_model import ContinuousModel
 import data
-from model.model import Model
 from utils import get_batch
 
 # torch.set_default_dtype(torch.float64)
