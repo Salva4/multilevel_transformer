@@ -36,9 +36,21 @@ class MultiHeadAttention(nn.Module):
         _K, _V: [b, L , d]
             _Q: [b, L', d]
      mask_attn: [L', L]
-     mask_pad : [b, L]
+     mask_pad : [b , L]
     '''
     b, L, d, Lp = *_K.shape, _Q.shape[1]
+
+    # print(f'_K.shape {_K.shape}')
+    # print(f'_V.shape {_V.shape}')
+    # print(f'_Q.shape {_Q.shape}')
+    # if mask_attn is not None: print(f'mask_attn {mask_attn.shape}')
+    # if mask_pad  is not None: print(f'mask_pad  {mask_pad .shape}')
+
+    assert _K.shape == (b, L , d)
+    assert _V.shape == (b, L , d)
+    assert _Q.shape == (b, Lp, d)
+    if mask_attn is not None: assert mask_attn.shape == (Lp, L)
+    if mask_pad  is not None: assert mask_pad .shape == (b , L)
     nh, dk, dv = self.num_heads, self.dim_keys, self.dim_values
 
     K = self.k_proj(_K).reshape(b, L , nh, dk).transpose(1, 2)  # K: [b, nh, L , dk]

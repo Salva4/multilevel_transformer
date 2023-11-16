@@ -9,10 +9,8 @@ class CrossAttention(nn.Module):
     self.attn = MultiHeadAttention(model_dimension, num_heads)
 
   def forward(self, _K, _V, _Q, mask_pad=None):  # _K: [b, L , d]
-                                                 # _V: [b, L , d]
-                                                 # _Q: [b, L', d]
-    out = self.attn(
-      _K=_K, 
+    out = self.attn(                             # _V: [b, L , d]
+      _K=_K,                                     # _Q: [b, L', d]
       _V=_V, 
       _Q=_Q,
       mask_attn=None,

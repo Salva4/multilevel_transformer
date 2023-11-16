@@ -1,11 +1,12 @@
-import evaluate
+# import evaluate
+import sacrebleu
 import torch
 
-try:
-  metric = evaluate.load('sacrebleu')
-except:
-  print('sacrebleu failed. Loading bleu')
-  metric = evaluate.load('bleu')
+# try:
+#   metric = evaluate.load('sacrebleu')
+# except:
+#   print('sacrebleu failed. Loading bleu')
+#   metric = evaluate.load('bleu')
 
 def train_epoch(_vars):
   print('Begin training')
@@ -288,18 +289,19 @@ def evaluate_bleu(_vars):
     candidate_corpus, reference_corpus = [], []
     bleu = {'train': None, 'test': None}
 
-    for mode in ['train', 'test']:
+    for mode in ['test']:#['train', 'test']:
       for i, instance in enumerate(_vars.dl[mode]):
         print(i)
         # if _vars.debug and i > 2: break
         src = instance['input_ids']
         translation = instance['translation'][_vars.lang_tgt]
         outputs = _vars.model.generate(
-          src,
+          src=src,
           max_new_tokens=40, 
           do_sample=False,#True, 
           top_k=30, 
-          top_p=0.95
+          top_p=0.95,
+          **_vars.__dict__,#
         )
         for j, output in enumerate(outputs):
           candidate = _vars.tokenizer.decode(
@@ -310,45 +312,14 @@ def evaluate_bleu(_vars):
           candidate_corpus.append(candidate)
           reference_corpus.append(reference)
 
-      bleu[mode] = metric.compute(
-        predictions=candidate_corpus, 
+      bleu[mode] = sacrebleu.corpus_bleu(
+        hypotheses=candidate_corpus, 
         references=reference_corpus,
       )
 
     _vars.candidate_corpus = candidate_corpus
     _vars.reference_corpus = reference_corpus
-    _vars.bleu = bleu
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    _vars.bleu = bleu    
 
 
 

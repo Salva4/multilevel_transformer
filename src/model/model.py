@@ -15,6 +15,7 @@ class ContinuousBlock(nn.Module):
                                                   **kwargs) \
        for i in range(self.num_layers)]
     )
+    self.state_symbol = ResidualLayer.state_symbol
 
   def forward(self, **state):
     for i, layer in enumerate(self.layers): state.update(layer(**state))
@@ -26,9 +27,13 @@ class ContinuousLayer(nn.Module):
     # if seed is not None: torch.manual_seed(seed)
 
     self.residual_layer = ResidualLayer(**kwargs)
+    self.state_symbol = self.residual_layer.state_symbol
 
-  def forward(self, x, **kwargs):
-    return {'x': x + self.residual_layer(x, **kwargs)['x']}
+  def forward(self, **kwargs):
+    state, state_symbol = kwargs[self.state_symbol], self.state_symbol
+    return {
+      state_symbol: state + self.residual_layer(**kwargs)[state_symbol],
+    }
 
 ##
 # Transformer encoder layer using their code's scheme & <i>MultiheadAttention</i>
@@ -82,6 +87,10 @@ class Model(nn.Module):
     #   print('initializing parameters')
     #   self.init_params()
 
+    if kwargs.get('device', None) is not None:
+      self.device = kwargs['device']
+      self.to(self.device)
+
   def forward(self, **state):
     return self.static_forward(self, **state)
 
@@ -100,18 +109,24 @@ class Model(nn.Module):
     ## Forward pass
     state.update(model.precontinuous_block (**state))
     for continuous_block in model.continuous_blocks:
-      state.update(model.continuous_block  (**state))
+      state.update(        continuous_block(**state))
     state.update(model.postcontinuous_block(**state))
     
     target = state['target']
 
+    # print(f'''state['x'].shape {state['x'].shape}''')
+    # print(f'''state['y'].shape {state['y'].shape}''')
+    # print(f'''state['target'].shape {state['target'].shape}''')
+
     if target is not None:
       if isinstance(criterion, nn.CrossEntropyLoss):
         logits = state['x']
-        loss = criterion(
-          logits.view(-1, logits.shape[-1]),
-          target.view(-1),
-        )
+        # print('shapes', logits.shape, target.shape)
+        loss = criterion(logits.transpose(1,2), target)
+        # loss = criterion(
+        #   logits.view(-1, logits.shape[-1]),
+        #   target.view(-1),
+        # )
         state['logits'] = logits
 
         if compute_accuracy:
