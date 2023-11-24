@@ -1,40 +1,52 @@
 ## Taken from Karpathy's github: [url]
 
+print('Importing modules...')#, end=' ')
 import argparse
+import copy
 import os
 import time
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 import sys
+print('-> Done.')
 
+print('Importing local files...')#, end=' ')
 sys.path.append('../../../src/')
+# sys.path.append(os.path.join('..', '..', '..', 'src', 'model'))
 from model.model import Model
 from continuous_model.continuous_model import ContinuousModel
+from src_utils.filter_dict import filter_keys
 
 from argument_parsing import parse_arguments, assert_and_correct_arguments
 import data
 from utils import get_batch
+print('-> Done.')
 
 # torch.set_default_dtype(torch.float64)
 
+print('Parsing arguments...')#, end=' ')
 args = parse_arguments()
 assert_and_correct_arguments(args)
+print('-> Done.')
+print(f'args: {args}')
+
+_vars = copy.deepcopy(args)
 
 ## This here below must change
-sys.path.append(f'model_architectures/{args.model_name}/methods/')
+sys.path.append(f'model_architectures/{_vars.model_name}/methods/')
 from generate import generate
 from init_weights import init_weights
 
 DATA_DIR = os.path.join('..', 'data')
 
-def obtain_model_name(args):
+def obtain_model_name(_vars):
   # model_name = '_'.join([
-  #   f'{k}{args.__dict__[k]}'.replace(' ', '_') \
-  #   for k in sorted(args.__dict__.keys())
-  # ]) # str(args)
+  #   f'{k}{_vars.__dict__[k]}'.replace(' ', '_') \
+  #   for k in sorted(_vars.__dict__.keys())
+  # ]) # str(_vars)
   model_name = ''
-  for (k, v) in sorted(args.__dict__.items()):
+  for (k, v) in sorted(_vars.__dict__.items()):
     if v is None: continue
     if k == 'batch_size': k = 'bs'
     if k == 'coarsening_factor': k = 'cf'
@@ -92,70 +104,62 @@ def generate_text(m, device, decode, max_new_tokens, **kwargs):
   )
   #open('../data/more.txt', 'w').write(decode(m.generate(context, max_new_tokens=10000)[0].tolist()))
 
-def main():
+# def main():
+if 1:
   # hyperparameters
-  num_batch_passes = int(args.num_epochs)
   eval_interval = 1000#500
-  learning_rate = float(args.lr)
-  max_new_tokens = 500
-  device = 'cuda' if torch.cuda.is_available() else 'cpu'
-  print(f'device {device}')
+  learning_rate = float(_vars.learning_rate)
+  _vars.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+  print(f'device {_vars.device}')
   eval_iters = 200
-  T = args.T
   dropout = 0.#0.2
-  seed = args.seed
   # ------------
 
-  if args.debug:
-    num_batch_passes = 2#1#10#100
-    args.batch_size = 2
-    args.context_window = 5
+  if _vars.debug:
+    _vars.batch_size = 2
+    _vars.context_window = 5
     eval_interval = 3
     eval_iters = 1
-    max_new_tokens = 10
-    args.model_dimension = 8#32
-    args.num_heads = 4
-    # args.continuous = True
+    _vars.max_new_tokens = 10
+    _vars.model_dimension = 8#32
+    _vars.num_heads = 4
+    # _vars.continuous = True
 
-  print(args)
+  print(_vars)
 
-  torch.manual_seed(seed)
+  torch.manual_seed(_vars.seed)
 
   ## DATA
   print('\n1. Loading data')
   # train_data, val_data, decode, vocabulary_size = \
   #   data.tokenize_data_at_character_level(DATA_PATH)
   train_data, val_data, decode, vocabulary_size = \
-    data.obtain_data(DATA_DIR, args.input_text, args.tokenization, args.debug)
+    data.obtain_data(
+      DATA_DIR, _vars.input_text, _vars.tokenization, _vars.debug,
+  )
+
+  _vars.vocabulary_size = vocabulary_size
+  _vars.dropout = dropout
 
   ## MODEL
   print('\n2. Building model')
-  print(f'Building model w/ {args.num_layers} decoder layers')
-  model_architecture_path = '.'.join(
-    ['model_architectures', args.model_name, 'architecture']
-  )
-  model = Model(
-    model_architecture_path=model_architecture_path,
-    num_layers=args.num_layers,
-    model_dimension=args.model_dimension,
-    num_heads=args.num_heads,
-    dropout=dropout,
-    vocabulary_size=vocabulary_size,
-    context_window=args.context_window,
+  print(f'Building model w/ {_vars.num_layers} decoder layers')
+  continuous_blocks_num_layers = [_vars.num_layers]
+  _vars.model = Model(
+    continuous_blocks_num_layers=continuous_blocks_num_layers, 
+    initialize_weights=False, **_vars.__dict__,
   )
 
-  torch.manual_seed(seed)
+  torch.manual_seed(_vars.seed)
   # model.apply(init_weights)
 
-  if args.continuous:
+  if _vars.continuous:
     print(' 2.1 Building continuous model')
-    model = ContinuousModel(model=model, T=T, solver=args.ode_solver)
+    _vars.model = ContinuousModel(**_vars.__dict__)
 
   # print(model)
-
-  m = model.to(device)
   # print the number of parameters in the model
-  print(sum(p.numel() for p in m.parameters())/1e6, 'M parameters')
+  print(sum(p.numel() for p in _vars.model.parameters())/1e6, 'M parameters')
 
   ## Debug: compare model weights
   # for p in m.parameters():
@@ -163,65 +167,70 @@ def main():
   # sys.exit()
 
   # create a PyTorch optimizer
-  optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-  criterion = nn.CrossEntropyLoss()
+  _vars.optimizer = torch.optim.AdamW(
+    _vars.model.parameters(), lr=learning_rate,
+  )
+  _vars.criterion = nn.CrossEntropyLoss()
 
-  model_name1, model_name2 = obtain_model_name(args)
-
-  if args.load: load_model(model, optimizer, model_name1, model_name2)
+  model_name1, model_name2 = obtain_model_name(_vars)
+  if _vars.load: load_model(
+    _vars.model, _vars.optimizer, model_name1, model_name2,
+  )
 
   # if k != 0:
   #   print(f'Interpolating weights from previous model to the new one')
   #   interpolate_weights(model, old_model)
 
-  torch.manual_seed(seed)
+  torch.manual_seed(_vars.seed)
 
-  print(f'\n3. Training model w/ {args.num_layers} decoder layers')
-  model.train()
-  model_save_t0 = time.time()
-  train_bf_eval_t0 = time.time()
-
+  print(f'\n3. Training model w/ {_vars.num_layers} decoder layers')
   get_training_set_batch = lambda: get_batch(
-    'train', train_data, val_data, args.context_window, args.batch_size,
-    device,
+    'train', train_data, val_data, _vars.context_window, _vars.batch_size,
+    _vars.device,
   )
   get_validation_set_batch = lambda: get_batch(
-    'val', train_data, val_data, args.context_window, args.batch_size,
-    device,
+    'val', train_data, val_data, _vars.context_window, _vars.batch_size,
+    _vars.device,
   )
 
-  for batch_idx in range(num_batch_passes + 1):
-    # torch.manual_seed(batch_idx)
+  num_epochs_list = [
+    int(num_epochs) for num_epochs in _vars.num_epochs.split('-')
+  ]
+  for num_epochs in num_epochs_list:
+    for epoch in range(num_epochs + 1):
+      # torch.manual_seed(batch_idx)
 
-    ## Train
-    if batch_idx > 0:
-      output = model.train_(
-        optimizer=optimizer, device=device, criterion=criterion,
-        get_batch=get_training_set_batch, num_batches=eval_interval,
-        compute_accuracy=False, print_times=False, **args.__dict__,
+      ## Train
+      if epoch > 0:
+        output_train = _vars.model.train_(
+          num_batches=1000, compute_accuracy=False, print_times=False, 
+          get_batch=get_training_set_batch, 
+          # gradient_accumulation_size=10, clipping_norm=.1,
+          **filter_keys(_vars.__dict__, (
+            'num_batches', 'compute_accuracy', 'print_times', 'get_batch',
+            'model',
+          )),
+        )
+
+      ## Evaluate
+      output_test = _vars.model.evaluate(
+        num_batches=eval_interval, compute_accuracy=False, print_times=False, 
+        get_batch=get_validation_set_batch, 
+        **filter_keys(_vars.__dict__, (
+          'num_batches', 'compute_accuracy', 'print_times', 'get_batch',
+          'model',
+        )),
       )
-      # loss, accuracy = output['loss'], output['accuracy']
-      # print(f'$training_loss {loss}, training_accuracy {accuracy}')
 
-    ## Evaluate
-    for mode, get_batch_fun in zip(
-      ['training', 'validation'],
-      [get_training_set_batch, get_validation_set_batch],
-    ):
-      output = model.evaluate(
-        device=device, criterion=criterion, get_batch=get_batch_fun,
-        num_batches=200, compute_accuracy=True, print_times=False,
-        **args.__dict__,
-      )
-      loss, accuracy = output['loss'], output['accuracy']
-      print(f'{mode}_loss {loss}, {mode}_accuracy {accuracy}')
+      if epoch > 0: print(epoch, output_train, output_test)
+      else: print(epoch, output_test)
 
-  if args.generate:
+  if _vars.generate:
     print('\n4. Generating text')
     # generate from the model
-    generate_text(m, device, decode, max_new_tokens, **args.__dict__)
+    generate_text(_vars.model, decode, **_vars.__dict__)
 
-if __name__ == '__main__':
-  main()
+# if __name__ == '__main__':
+#   main()
 
 

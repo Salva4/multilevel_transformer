@@ -3,9 +3,14 @@ import importlib
 import numpy as np
 import torch
 import torch.nn as nn
+import sys
 
 from .save import save_model, load_model
 from .train import train, evaluate
+
+# from ..src_utils.filter_dict import filter_keys
+sys.path.append('..')
+from src_utils.filter_dict import filter_keys
 
 class ContinuousBlock(nn.Module):
   def __init__(
@@ -18,10 +23,10 @@ class ContinuousBlock(nn.Module):
                                                   **kwargs) \
        for i in range(self.num_layers)]
     )
+    self.continuous_block_idx = continuous_block_idx
     self.name = ResidualLayer.name if 'name' in dir(ResidualLayer) \
            else f'continuous_block_{continuous_block_idx}'
-    self.continuous_block_idx = continuous_block_idx
-    self.state_symbol = ResidualLayer.state_symbol
+    self.state_symbol = self.layers[0].state_symbol
 
   def forward(self, store_hidden_states, **state):
     for i, layer in enumerate(self.layers):
@@ -43,7 +48,9 @@ class ContinuousLayer(nn.Module):
     # if seed is not None: torch.manual_seed(seed)
 
     self.residual_layer = ResidualLayer(**kwargs)
-    self.state_symbol = self.residual_layer.state_symbol
+    self.state_symbol = self.residual_layer.state_symbol \
+      if 'state_symbol' in dir(ResidualLayer) else 'x'
+
 
   def forward(self, **kwargs):
     state, state_symbol = kwargs[self.state_symbol], self.state_symbol
@@ -89,7 +96,9 @@ class Model(nn.Module):
         ResidualLayer=continuous_block_module.ContinuousResidualLayer,
         num_layers=num_layers,
         continuous_block_idx=continuous_block_idx,
-        **kwargs,
+        **filter_keys(
+          kwargs, ('ResidualLayer', 'num_layers', 'continuous_block_idx'),
+        ),
       )
       self.continuous_blocks.append(continuous_block)
 

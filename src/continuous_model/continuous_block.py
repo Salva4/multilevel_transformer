@@ -13,13 +13,13 @@ from continuous_model.gradient_function import GradientFunction
 from continuous_model.fwd_bwd_pass.solve_sequential import solve_sequential
 
 class ContinuousBlock(nn.Module):
-  def __init__(self, ψ, N, T, solver, coarsening_factor=2, **kwargs):#, num_levels):#, interpol):
+  def __init__(self, ψ, N, T, ode_solver, coarsening_factor=2, **kwargs):#, num_levels):#, interpol):
     super().__init__()
     self.N = N
     self.T = T
     self.c = c = coarsening_factor
-    self.solver = solver
-    self.Φ = obtain_Φ(solver)
+    self.ode_solver = ode_solver
+    self.Φ = obtain_Φ(ode_solver)
     # self.num_levels = num_levels
     # self.interpol = interpol
 
@@ -31,16 +31,16 @@ class ContinuousBlock(nn.Module):
 
     self.ψ = nn.ModuleList([])
 
-    if self.solver == 'Forward Euler':
+    if self.ode_solver == 'Forward Euler':
       # self.Φ = Φ_ForwardEuler
       for i in range(self.N): self.ψ.append(ψ[i])  # basis functions
 
-    elif self.solver == 'Heun':
+    elif self.ode_solver == 'Heun':
       # self.Φ = Φ_Heun
       for i in range(self.N): self.ψ.append(ψ[i])
       self.ψ.append(copy.deepcopy(ψ[-1]))
 
-    elif self.solver == 'RK4':
+    elif self.ode_solver == 'RK4':
       # self.Φ = Φ_RK4
       for i in range(self.N):
         self.ψ.append(ψ[i])
@@ -62,11 +62,11 @@ class ContinuousBlock(nn.Module):
     T = self.T
     c = self.c
     Φ = self.Φ
-    solver = self.solver
+    ode_solver = self.ode_solver
     ψ = self.ψ[::c**level]
 
     ode_fwd_details = {
-      'N': N, 'T': T, 'c': c, 'solver': solver, 'Φ': Φ, 'ψ': ψ,
+      'N': N, 'T': T, 'c': c, 'solver': ode_solver, 'Φ': Φ, 'ψ': ψ,
     }
     fwd_pass_details.update(ode_fwd_details)
 
@@ -77,7 +77,7 @@ class ContinuousBlock(nn.Module):
     # h = T/N
     # LAYERS_IDX_CONSTANT = {'Forward Euler': 1, 'Heun': 1, 'RK4': 2}
     # def F(t, x, **other_F_inputs):
-    #   return ψ[round(t/h*LAYERS_IDX_CONSTANT[solver])](x, **other_F_inputs)
+    #   return ψ[round(t/h*LAYERS_IDX_CONSTANT[ode_solver])](x, **other_F_inputs)
     # fwd_pass_details['F'] = F
     # x = solve_sequential(x, **fwd_pass_details)
 
