@@ -19,19 +19,17 @@ fn = {
 }
 
 def obtain_data(_vars):
-  ds = {  # init
-    'train': {'translation': []},
-     'test': {'translation': []},
-  }
+  _vars.splits = ['train', 'test']
+  data_sets = {split: {'translation': []} for split in _vars.splits}  # init
   
-  for mode in ['train', 'test']:  # extract sentences from files 
-    path_src = open(os.path.join(dir_data, fn[mode]['src']), 'r')
-    path_tgt = open(os.path.join(dir_data, fn[mode]['tgt']), 'r')
+  for split in _vars.splits:  # extract sentences from files 
+    path_src = open(os.path.join(dir_data, fn[split]['src']), 'r')
+    path_tgt = open(os.path.join(dir_data, fn[split]['tgt']), 'r')
 
-    print(f'Obtaining "{mode}" data')
+    print(f'Obtaining "{split}" data')
     for i, (line_src, line_tgt) in enumerate(tqdm.tqdm(zip(path_src, path_tgt))):
       if _vars.debug and i > 2000: break
-      ds[mode]['translation'].append(
+      data_sets[split]['translation'].append(
         {
           lang_src: line_src.strip(),
           lang_tgt: line_tgt.strip(),
@@ -39,28 +37,26 @@ def obtain_data(_vars):
       )
 
   ## dict --> Dataset --> DatasetDict + tokenize
-  ds_tr = datasets.Dataset.from_dict(ds['train'])
-  ds_te = datasets.Dataset.from_dict(ds['test'])
-  ds_dict = datasets.DatasetDict({'train': ds_tr, 'test': ds_te})
-  ds_dict = ds_dict.map(
+  data_set_dicts = datasets.DatasetDict({
+    split: datasets.Dataset.from_dict(data_sets[split]) \
+    for split in _vars.splits
+  })
+  data_set_dicts = data_set_dicts.map(
     lambda partition: φ_preprocess(partition, _vars.tokenizer), 
     batched=True
   ).with_format('torch', device=_vars.device)
 
-  dl = {}
-  dl['train'] = DataLoader(
-    ds_dict['train'], 
-    batch_size=_vars.batch_size, 
-    shuffle=True
-  )
-  dl['test'] = DataLoader(
-    ds_dict['test'], 
-    batch_size=_vars.batch_size, 
-    shuffle=False
-  )
+  data_loaders = {
+    'train': DataLoader(
+      data_set_dicts['train'], batch_size=_vars.batch_size, shuffle=True ,
+    ),
+    'test': DataLoader(
+      data_set_dicts['test' ], batch_size=_vars.batch_size, shuffle=False,
+    )
+  }
 
   _vars.lang_src, _vars.lang_tgt = lang_src, lang_tgt
-  _vars.ds, _vars.dl = ds_dict, dl
+  _vars.data_sets, _vars.data_loaders = data_set_dicts, data_loaders
 
 ## Adapted from https://huggingface.co/docs/transformers/tasks/translation
 def φ_preprocess(partition, tokenizer):

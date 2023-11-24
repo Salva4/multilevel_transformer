@@ -1,3 +1,4 @@
+import copy
 import importlib
 import numpy as np
 import torch
@@ -7,7 +8,9 @@ from .save import save_model, load_model
 from .train import train, evaluate
 
 class ContinuousBlock(nn.Module):
-  def __init__(self, ResidualLayer, num_layers, **kwargs):
+  def __init__(
+    self, ResidualLayer, num_layers, continuous_block_idx, **kwargs,
+  ):
     super().__init__()
     self.num_layers = num_layers
     self.layers = nn.ModuleList(
@@ -15,10 +18,23 @@ class ContinuousBlock(nn.Module):
                                                   **kwargs) \
        for i in range(self.num_layers)]
     )
+    self.name = ResidualLayer.name if 'name' in dir(ResidualLayer) \
+           else f'continuous_block_{continuous_block_idx}'
+    self.continuous_block_idx = continuous_block_idx
     self.state_symbol = ResidualLayer.state_symbol
 
-  def forward(self, **state):
-    for i, layer in enumerate(self.layers): state.update(layer(**state))
+  def forward(self, store_hidden_states, **state):
+    for i, layer in enumerate(self.layers):
+      state.update(layer(**state))
+
+      if store_hidden_states:
+        if not self.name in state['hidden_states']: 
+          state['hidden_states'][self.name] = []
+
+        state['hidden_states'][self.name].append(
+          state[self.state_symbol].clone(),
+        )
+
     return state
 
 class ContinuousLayer(nn.Module):
@@ -38,9 +54,13 @@ class ContinuousLayer(nn.Module):
 ##
 # Transformer encoder layer using their code's scheme & <i>MultiheadAttention</i>
 class Model(nn.Module):
-  def __init__(self, model_name, continuous_blocks_num_layers, **kwargs):
+  def __init__(
+    self, model_name, continuous_blocks_num_layers, initialize_weights=False,
+    **kwargs,
+  ):
                # seed_precontinuous_block=None, seed_postcontinuous_block=None,
     super().__init__()
+    kwargs['model'] = self
 
     model_architecture_path = '.'.join(
       ['model_architectures', model_name, 'architecture']
@@ -68,6 +88,7 @@ class Model(nn.Module):
       continuous_block = ContinuousBlock(
         ResidualLayer=continuous_block_module.ContinuousResidualLayer,
         num_layers=num_layers,
+        continuous_block_idx=continuous_block_idx,
         **kwargs,
       )
       self.continuous_blocks.append(continuous_block)
@@ -83,20 +104,35 @@ class Model(nn.Module):
       postcontinuous_block_module.PostContinuousBlock(**kwargs)
     
     ## Weights initialization
-    # if initialize_parameters:
-    #   print('initializing parameters')
-    #   self.init_params()
+    if initialize_weights:
+      # for p in self.parameters(): p.data.zero_()
+      print('Initializing weights...')
+      self.apply(self.initialize_weights)
 
     if kwargs.get('device', None) is not None:
       self.device = kwargs['device']
       self.to(self.device)
+
+  def initialize_weights(self, module):    
+    if isinstance(module, nn.Linear):
+      module.weight.data.normal_(mean=0., std=1.)
+      if module.bias is not None: module.bias.data.zero_()
+
+    elif isinstance(module, nn.Embedding):
+      module.weight.data.normal_(mean=0., std=1.)
+
+      if module.padding_idx is not None:
+        module.weight.data[module.padding_idx].zero_()
+
+    # else: print(module)
 
   def forward(self, **state):
     return self.static_forward(self, **state)
 
   @staticmethod
   def static_forward(
-    model, input, target=None, criterion=None, compute_accuracy=False, **state,
+    model, input, target=None, criterion=None, compute_accuracy=False, 
+    store_hidden_states=False, **state,
   ):
     if target is not None or criterion is not None:
       assert target is not None and criterion is not None
@@ -106,11 +142,34 @@ class Model(nn.Module):
     state['x'] = state['input' ] = input
     state['y'] = state['target'] = target
 
-    ## Forward pass
+    state['hidden_states'] = hidden_states = {} if store_hidden_states \
+                                                else None
+
+    ## Forward pass ###################
     state.update(model.precontinuous_block (**state))
-    for continuous_block in model.continuous_blocks:
-      state.update(        continuous_block(**state))
+
+    if store_hidden_states: 
+      hidden_states['precontinuous_block'] = {
+        'x': state['x'].clone(), 'y': state['y'].clone(),
+      }
+
+    for i, continuous_block in enumerate(model.continuous_blocks):
+      state.update(
+        continuous_block(**state, store_hidden_states=store_hidden_states)
+      )
+
+      # if store_hidden_states: 
+      #   hidden_states[f'continuous_block_{i}'].append(
+      #     state[continuous_block.state_symbol].clone(),
+      #   )
+
     state.update(model.postcontinuous_block(**state))
+
+    if store_hidden_states:
+      hidden_states['postcontinuous_block'] = {
+        'x': state['x'].clone(), 'y': state['y'].clone(),
+      }
+    ###################################
     
     target = state['target']
 

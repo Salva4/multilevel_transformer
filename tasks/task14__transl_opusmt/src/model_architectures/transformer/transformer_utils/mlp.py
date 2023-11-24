@@ -5,7 +5,7 @@ class MLP(nn.Module):
     super().__init__()
     self.fc1 = nn.Linear(model_dimension, dim_ff)
     self.fc2 = nn.Linear(dim_ff, model_dimension)
-    self.activation_fn = nn.SiLU()
+    self.activation_fn = nn.SiLU()#nn.ReLU()
 
   def forward(self, x):
     _h = self.fc1(x)

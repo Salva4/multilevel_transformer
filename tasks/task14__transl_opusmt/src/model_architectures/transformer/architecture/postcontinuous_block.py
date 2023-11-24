@@ -4,7 +4,10 @@ class PostContinuousBlock(nn.Module):
   def __init__(self, model_dimension, tokenizer, **kwargs):
     super().__init__()
 
+    E_matrix = kwargs['model'].precontinuous_block.embedding.weight
+
     self.classifier = nn.Linear(model_dimension, len(tokenizer))
+    # self.classifier.weight.data = E_matrix.data  # shared parameters
 
     # self.apply(init_weights)
 

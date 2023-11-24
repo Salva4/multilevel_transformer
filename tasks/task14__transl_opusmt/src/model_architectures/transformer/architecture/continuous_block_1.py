@@ -3,6 +3,7 @@ import torch.nn as nn
 from ..transformer_utils.F_enc import F_enc
 
 class ContinuousResidualLayer(nn.Module):
+  name = 'encoder'
   state_symbol = 'x'
   
   def __init__(self, model_dimension, num_heads, dim_ff, **kwargs):

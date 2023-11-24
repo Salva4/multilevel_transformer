@@ -12,6 +12,18 @@ from src_utils.monitoring import time_
 
 class AccuracyCounter: correct = 0; total = 0
 
+class GradientHandler: 
+  ctr = 0
+  def __init__(self, size, model, clipping_norm=None):
+    self.size = size
+    self.model = model
+    self.clipping_norm = clipping_norm
+
+  def clip_grad_norm(self):
+    torch.nn.utils.clip_grad_norm_(
+      self.model.parameters(), max_norm=self.clipping_norm,
+    )
+
 def prepare_inputs(
   get_batch, device, criterion, compute_accuracy, details,
 ):
@@ -39,10 +51,15 @@ def forward_pass(model, model_inputs, losses, accuracy_counter):
 
   return loss, accuracy_counter, batch_fwd_time
 
-def backward_pass(optimizer, loss):
+def backward_pass(optimizer, loss, gradient_handler):
   optimizer.zero_grad()#set_to_none=True) <-- ?
   batch_bwd_time = time_(loss.backward)
-  optimizer.step()
+  
+  gradient_handler.ctr += 1
+  if gradient_handler.ctr%gradient_handler.size == 0:
+    if gradient_handler.clipping_norm is not None:
+      gradient_handler.clip_grad_norm()
+    optimizer.step()
 
   return batch_bwd_time
 
@@ -74,7 +91,8 @@ def train_conventional(
 
 def train(
   model, optimizer, device, criterion, get_batch, num_batches,
-  compute_accuracy=False, print_times=False, use_mgopt=False, **details,
+  compute_accuracy=False, print_times=False, use_mgopt=False, 
+  gradient_accumulation_size=1, clipping_norm=None, **details,
 ):
   # if use_mgopt: assert isinstance(model, ContinuousModel)
 
@@ -82,6 +100,9 @@ def train(
   model.train()
   losses = []
   accuracy_counter = AccuracyCounter()
+  gradient_handler = GradientHandler(
+    gradient_accumulation_size, model, clipping_norm,
+  )
 
   _prepare_inputs = lambda: prepare_inputs(
     get_batch, device, criterion, compute_accuracy, details,
@@ -89,7 +110,9 @@ def train(
   _forward_pass = lambda model_inputs: forward_pass(
     model, model_inputs, losses, accuracy_counter,
   )
-  _backward_pass = lambda loss: backward_pass(optimizer, loss)
+  _backward_pass = lambda loss: backward_pass(
+    optimizer, loss, gradient_handler,
+  )
 
   if not use_mgopt:
     train_conventional(
