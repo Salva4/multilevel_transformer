@@ -4,11 +4,13 @@ def parse_arguments():
   parser = argparse.ArgumentParser()
 
   ## Data & training
-  parser.add_argument('--input_text'    , type=str, default='shakespeare'                    )
-  parser.add_argument('--tokenization'  , type=str, default='gpt2', help='character|gpt2'    )
-  parser.add_argument('--batch_size'    , type=int, default=8                                )#64)  <-- revise 8->64
-  parser.add_argument('--context_window', type=int, default=256                              )
-  parser.add_argument('--num_epochs'    , type=str, default='5000', help='10_10_10_10_10_...')
+  parser.add_argument('--input_text'                , type=str  , default='shakespeare'                    )
+  parser.add_argument('--tokenization'              , type=str  , default='gpt2', help='character|gpt2'    )
+  parser.add_argument('--batch_size'                , type=int  , default=8                                )#64)  <-- revise 8->64
+  parser.add_argument('--context_window'            , type=int  , default=256                              )
+  parser.add_argument('--gradient_accumulation_size', type=int  , default=1                                )
+  parser.add_argument('--gradient_clipping_norm'    , type=float, default=None                             )
+  parser.add_argument('--num_epochs'                , type=str  , default='5000', help='10_10_10_10_10_...')
 
   ## Optimizer
   parser.add_argument('--learning_rate', type=str, default='3e-4', help='lrlvl0_lrlvl1_...')  
@@ -59,7 +61,6 @@ def parse_arguments():
 # parser.add_argument('--init', type=str, required=True)#default='xavier')
 # parser.add_argument('--pe', type=str, required=True)#default='torch')
 
-
 def assert_and_correct_arguments(args):
   ## False --> False/None
   false_implies_falsenone = {
@@ -73,7 +74,7 @@ def assert_and_correct_arguments(args):
       'mgopt_mu', 'mgopt_nu', 'mgopt_num_levels', 'mgopt_cycle', 
       'mgopt_num_iterations',
     ],
-    'generate': ['max_new_tokens']
+    'generate': ['max_new_tokens'],
   }
 
   for (k, v_list) in false_implies_falsenone.items():
@@ -94,7 +95,7 @@ def assert_and_correct_arguments(args):
 
   ## Default values
   default_values = {
-    'T': args.num_layers,
+    'T': f'{args.num_layers}',
     'ode_solver': 'Forward Euler',
     'levels_scheme': '0',
     'coarsening_factor': 2,
@@ -111,28 +112,6 @@ def assert_and_correct_arguments(args):
 
   for (k, v) in default_values.items():
     if args.__dict__[k] is None: args.__dict__[k] = v
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from ..transformer_utils.marian_sinusoidal_positional_embedding \
+from ..model_utils.marian_sinusoidal_positional_embedding \
   import MarianSinusoidalPositionalEmbedding
 
 class PreContinuousBlock(nn.Module):

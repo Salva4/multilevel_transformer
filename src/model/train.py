@@ -92,7 +92,7 @@ def train_conventional(
 def train(
   model, optimizer, device, criterion, get_batch, num_batches,
   compute_accuracy=False, print_times=False, use_mgopt=False, 
-  gradient_accumulation_size=1, clipping_norm=None, **details,
+  gradient_accumulation_size=1, gradient_clipping_norm=None, **details,
 ):
   # if use_mgopt: assert isinstance(model, ContinuousModel)
 
@@ -101,7 +101,7 @@ def train(
   losses = []
   accuracy_counter = AccuracyCounter()
   gradient_handler = GradientHandler(
-    gradient_accumulation_size, model, clipping_norm,
+    gradient_accumulation_size, model, gradient_clipping_norm,
   )
 
   _prepare_inputs = lambda: prepare_inputs(

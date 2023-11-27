@@ -165,7 +165,7 @@ def main():
   #     return {'loss': loss}#output
 
   # import numpy as np
-  # import sys; sys.path.append('model_architectures/transformer/transformer_utils')
+  # import sys; sys.path.append('model_architectures/transformer/model_utils')
   # from F_enc import F_enc
   # from F_dec import F_dec
   # class ConvTrans(nn.Module):
@@ -300,9 +300,9 @@ def main():
   # for p in conv_trans.parameters(): print(p.shape, p.ravel()[:4])
   # sys.exit()
 
-  _vars.criterion = nn.CrossEntropyLoss(ignore_index=_vars.pad_token_id)
   _vars.optimizer = torch.optim.Adam(_vars.model.parameters(), lr=_vars.lr)
   # _vars.optimizer = torch.optim.Adam(conv_trans .parameters(), lr=_vars.lr)
+  _vars.criterion = nn.CrossEntropyLoss(ignore_index=_vars.pad_token_id)
 
   _vars.data_loader_iterators = dict(zip(
     _vars.splits, [iter(_vars.data_loaders[split]) for split in _vars.splits],
@@ -314,6 +314,8 @@ def main():
     if batch is None: 
       _vars.data_loader_iterators[split] = iter(_vars.data_loaders[split])
       batch = next(_vars.data_loader_iterators[split], None)
+      if batch is None: 
+        raise Exception(f'Length of {split} data loader is 0.')
 
     input, target = batch['input_ids'], batch['labels']
     batch = (input, target)
@@ -365,29 +367,29 @@ def main():
       # print()
 
       if epoch > 0:
-        output_train = _vars.model.train_(
+        training_output = _vars.model.train_(
           num_batches=100, compute_accuracy=False, print_times=False, 
           get_batch=lambda: get_batch('train'), 
           # gradient_accumulation_size=10, clipping_norm=.1,
           **_vars_training_dict,
         )
-        # output_train = _vars.model.static_train(conv_trans,
+        # training_output = _vars.model.static_train(conv_trans,
         #   num_batches=100, compute_accuracy=False, print_times=False, 
         #   get_batch=lambda: get_batch('train'), 
         #   # gradient_accumulation_size=10, clipping_norm=.1,
         #   **_vars_training_dict,
         # )
-      output_test = _vars.model.evaluate(
+      evaluation_output = _vars.model.evaluate(
         num_batches=100, compute_accuracy=False, print_times=False, 
         get_batch=lambda: get_batch('test' ), **_vars_training_dict,
       )
-      # output_test = _vars.model.static_evaluate(conv_trans,
+      # evaluation_output = _vars.model.static_evaluate(conv_trans,
       #   num_batches=100, compute_accuracy=False, print_times=False, 
       #   get_batch=lambda: get_batch('test'), **_vars_training_dict,
       # )
 
-      if epoch > 0: print(epoch, output_train, output_test)
-      else: print(epoch, output_test)
+      if epoch > 0: print(epoch, training_output, evaluation_output)
+      else: print(epoch, evaluation_output)
 
   # torch.manual_seed(1)
 

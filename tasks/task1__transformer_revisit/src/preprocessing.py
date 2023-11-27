@@ -7,6 +7,7 @@ from input_pipeline import sentences_from_conll_data, PAD_ID
 class Dataset(torch.utils.data.Dataset):
   def __init__(self, **params):
     self.data = self.create_dataset(**params)
+    self.pad_token_id = PAD_ID
 
   def __len__(self):
     return len(self.data)
@@ -65,43 +66,6 @@ def obtain_dataset(seed=None, **params):
     num_workers=0,
   )
   return dataset, dataloader
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

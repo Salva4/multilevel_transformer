@@ -3,7 +3,7 @@ import torch.nn as nn
 # from .self_attention import SelfAttention
 # from .cross_attention import CrossAttention
 # from .mlp import MLP
-import sys; sys.path.append('model_architectures/transformer/transformer_utils')
+import sys; sys.path.append('model_architectures/transformer/model_utils')
 from self_attention import SelfAttention
 from cross_attention import CrossAttention
 from mlp import MLP

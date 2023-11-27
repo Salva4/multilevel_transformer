@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from ..transformer_utils.F_dec import F_dec
+from ..model_utils.F_dec import F_dec
 
 class ContinuousResidualLayer(nn.Module):
   name = 'decoder'

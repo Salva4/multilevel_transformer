@@ -1,5 +1,7 @@
-# import argparse
-import numpy as np 
+
+print('Importing modules...')#, end=' ')
+import copy
+import numpy as np
 # import matplotlib.pyplot as plt
 import time
 import torch
@@ -7,24 +9,27 @@ import torch.nn as nn
 import torch.nn.functional as F
 import tqdm
 import sys
+print('-> Done.')
 
+print('Importing local files...')#, end=' ')
 sys.path.append('../../../src/')
-
-from argument_parsing import parse_arguments
-import input_pipeline
-import preprocessing
 from model.model import Model
 from continuous_model.continuous_model import ContinuousModel
-from training import train_epoch
+from src_utils.filter_dict import filter_keys
+
+from argument_parsing import parse_arguments, assert_and_correct_arguments
+from data import obtain_data
+print('-> Done.')
 
 # torch.set_default_dtype(torch.float64)
 
-TRAINING_DATA_PATH = '../data/en_gum-ud-train.conllu.txt'#'/users/msalvado/MLT/ML_PQ/data/en_gum-ud-train.conllu.txt'
-VALIDATION_DATA_PATH = '../data/en_gum-ud-dev.conllu.txt'#'/users/msalvado/MLT/ML_PQ/data/en_gum-ud-dev.conllu.txt'
-TRAINING_DATA_PATH_DEBUG = '../data/en_gum-ud-train.conllu_debug.txt'
-VALIDATION_DATA_PATH_DEBUG = '../data/en_gum-ud-dev.conllu_debug.txt'
-
+print('Parsing arguments...')#, end=' ')
 args = parse_arguments()
+assert_and_correct_arguments(args)
+print('-> Done.')
+print(f'args: {args}')
+
+_vars = copy.deepcopy(args)
 # args.model_dimension = 8
 # args.max_length = 5
 # args.num_epochs = '2'
@@ -39,104 +44,55 @@ args = parse_arguments()
 # args.num_epochs = '2_2_2'
 # args.optimizer = 'SGD'
 
-def assert_arguments(args):
-  ## ML weights initialization
-  num_levels = len(args.lr.split('_'))
-  assert num_levels == len(args.momentum.split('_'))
+# def assert_arguments(args):
+#   ## ML weights initialization
+#   num_levels = len(args.lr.split('_'))
+#   assert num_levels == len(args.momentum.split('_'))
 
-  if not args.continuous:
-    assert num_levels == 1 and len(args.levels_scheme.split('_')) == 1 \
-                           and len(args.num_epochs.split('_')) == 1
-    assert not args.mgopt and not args.mgrit
-  else:
-    if num_levels > 1:
-      assert args.N // args.coarsening_factor ** (num_levels - 1) >  0 and \
-             args.N %  args.coarsening_factor ** (num_levels - 1) == 0
-    assert len(args.levels_scheme.split('_')) == \
-           len(args.num_epochs   .split('_'))
+#   if not args.continuous:
+#     assert num_levels == 1 and len(args.levels_scheme.split('_')) == 1 \
+#                            and len(args.num_epochs.split('_')) == 1
+#     assert not args.mgopt and not args.mgrit
+#   else:
+#     if num_levels > 1:
+#       assert args.N // args.coarsening_factor ** (num_levels - 1) >  0 and \
+#              args.N %  args.coarsening_factor ** (num_levels - 1) == 0
+#     assert len(args.levels_scheme.split('_')) == \
+#            len(args.num_epochs   .split('_'))
 
-  ## MGRIT, MGOPT, ...
-  # assert not (args.mgrit and args.mgopt)
+#   ## MGRIT, MGOPT, ...
+#   # assert not (args.mgrit and args.mgopt)
 
-  ## MGOPT
-  # assert args.N%(2**(args.n_lvls - 1)) == 0
+#   ## MGOPT
+#   # assert args.N%(2**(args.n_lvls - 1)) == 0
 
-def obtain_ds_dl():
-  training_data_path   = TRAINING_DATA_PATH   if not args.debug else \
-                         TRAINING_DATA_PATH_DEBUG
-  validation_data_path = VALIDATION_DATA_PATH if not args.debug else \
-                         VALIDATION_DATA_PATH_DEBUG
-  print(
-    'training_data_path'  , training_data_path, 
-    'validation_data_path', validation_data_path,
-  )
-
-  vocabularies = input_pipeline.create_vocabularies(training_data_path)
-  vocabulary_size = len(vocabularies['forms'])
-  num_classes = len(vocabularies['xpos'])
-
-  attributes_input = [input_pipeline.CoNLLAttributes.FORM]
-  attributes_target = [input_pipeline.CoNLLAttributes.XPOS]
-
-  training_dataset, training_dataloader = preprocessing.obtain_dataset(
-    filename=training_data_path, 
-    vocabularies=vocabularies, 
-    attributes_input=attributes_input, 
-    attributes_target=attributes_target,
-    batch_size=args.batch_size, 
-    bucket_size=args.max_length,
-    seed=0,
-  )
-  validation_dataset, validation_dataloader = preprocessing.obtain_dataset(
-    filename=validation_data_path, 
-    vocabularies=vocabularies, 
-    attributes_input=attributes_input, 
-    attributes_target=attributes_target,
-    batch_size=args.batch_size,#187, 
-    bucket_size=args.max_length,
-    seed=0,
-  )
-
-  return (
-    training_dataset, validation_dataset, training_dataloader, 
-    validation_dataloader, vocabulary_size, num_classes,
-  )
+#   also add Adam -> ~momentum !
 
 def main():
   ## args managing ####################
-  if args.debug:
-    args.batch_size = 2
-    # args.continuous = True
-    args.max_length = 10
-    args.N = 8#2
+  if _vars.debug:
+    _vars.batch_size = 2
+    # _vars.continuous = True
+    _vars.max_length = 10
+    _vars.num_layers = 8#2
 
-  assert_arguments(args)
+  # assert_arguments(_vars)
 
-  if args.T is None and args.continuous: args.T = args.N
-  # args.solver = args.solver.replace('_', ' ')  # Forward_Euler --> Forward Euler
-
-  print('args', args)
+  if _vars.T is None and _vars.continuous: _vars.T = _vars.num_layers
   #####################################
-
 
   ## Time monitoring
   t0 = time.time()
 
-  # print('INFO: 20221127_01_MGOPT: MG/OPT 1st ord. consistency - 2nd approach.')
-
-  criterion = nn.CrossEntropyLoss(ignore_index=0)
-  device = 'cuda' if torch.cuda.is_available() else 'cpu'
-  print(f'device {device}\n')
+  _vars.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+  print(f'device {_vars.device}\n')
 
   ## DS
   print('1. Obtaining datasets and dataloaders')
-  (
-    training_dataset, validation_dataset, training_dataloader, 
-    validation_dataloader, vocabulary_size, num_classes,
-  ) = tqdm.tqdm(obtain_ds_dl())
-  print()
+  tqdm.tqdm(obtain_data(_vars))
+  print('-> Done.')
 
-  ############## ML weights initialization  
+  ############## ML weights initialization
   # ## Init with fewer layers? Information is at N
   # Ns = args.N.split('-')
   # nums_epochs = args.num_epochs.split('-')
@@ -148,9 +104,9 @@ def main():
 
   #   ## Training setup 2/2
   #   model = Model(
-  #     args.init.capitalize(), 
-  #     args.pe.capitalize(), 
-  #     T=args.T, 
+  #     args.init.capitalize(),
+  #     args.pe.capitalize(),
+  #     T=args.T,
   #     N=N,
   #     # interpol=args.interpol.lower(),
   #   ).to(device)
@@ -166,7 +122,7 @@ def main():
   #   ## Training
   #   # num_epochs = args.num_epochs//len(Ns)
   #   num_epochs = int(nums_epochs[i])
-  #   coarse_model = train(training_dataloader, validation_dataloader, model, optimizer, 
+  #   coarse_model = train(training_dataloader, validation_dataloader, model, optimizer,
   #     criterion, device, num_epochs, args.n_monitoring)
 
   #   print(f'Training finished for N={N}')
@@ -180,8 +136,8 @@ def main():
   #   N = args.N // 2**(args.n_lvls - lvl - 1)  # From coarse to fine
   #   model = Model(
   #     init_method = 'None' if lvl != (args.n_lvls - 1) else args.init.capitalize(),
-  #     encoding = args.pe.capitalize(), 
-  #     T = args.T, 
+  #     encoding = args.pe.capitalize(),
+  #     T = args.T,
   #     N = N,# + 1,    # ((main's N (MGOPT) is multiple of power of 2; model's N is (a power of 2) + 1)) <-- not anymore
   #   ).to(device)
   #   models.append(model)
@@ -192,76 +148,99 @@ def main():
 
   ################################# Conventional training
   torch.manual_seed(0)#args.seed)
+  print(f'2. Initializing models')
+  print(f'Building model w/ {_vars.num_layers} encoder layers')
+  continuous_blocks_num_layers = [_vars.num_layers]
+  _vars.model = Model(
+    continuous_blocks_num_layers=continuous_blocks_num_layers,
+    initialize_weights=False, **_vars.__dict__,
+  ).to(_vars.device)
 
-  model_architecture_path = '.'.join(
-    ['model_architectures', args.model_name, 'architecture']
-  )
-  model = Model(
-    model_architecture_path=model_architecture_path, 
-    vocabulary_size=vocabulary_size, num_classes=num_classes, **args.__dict__,
-  ).to(device)
-  
-  if args.continuous:
-    num_levels = len(args.lr.split('_'))
-    model = ContinuousModel(model=model, **args.__dict__)#.to(device)
+  if _vars.continuous:
+    print(' 2.1 Building continuous model')
+    _vars.model = ContinuousModel(model=_vars.model, **_vars.__dict__)#.to(device)
+    print(' -> Done.')
+  print('-> Done.')
 
-  if args.optimizer == 'Adam':
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.)
-  elif args.optimizer == 'SGD':
-    optimizer = torch.optim.SGD(
-      model.parameters(), lr=0., momentum=0.,
+  print(f'model: {_vars.model}')
+
+  if _vars.optimizer_name == 'Adam':
+    _vars.optimizer = torch.optim.Adam(
+      _vars.model.parameters(), lr=0.,
+    )
+  elif _vars.optimizer_name == 'SGD':
+    _vars.optimizer = torch.optim.SGD(
+      _vars.model.parameters(), lr=0., momentum=0.,
     )#1e-2, .9)
   else: raise Exception()
 
-  print(f'model: {model}')
+  _vars.criterion = nn.CrossEntropyLoss(ignore_index=_vars.pad_token_id)#0)
   ########################################
 
   print()
   print(f'3. Training models')
   torch.manual_seed(0)#args.seed)
-  num_epochs_list = [int(num_epochs) for num_epochs in args.num_epochs.split('_')]
-  levels_list = [int(level) for level in args.levels_scheme.split('_')]
-  lr_list = [float(lr) for lr in args.lr.split('_')]
-  momentum_list = [float(momentum) for momentum in args.momentum.split('_')]
+  num_epochs_list = [  int(num_epochs) for num_epochs in _vars.num_epochs   .split('_')]
+  levels_list     = [  int(level     ) for level      in _vars.levels_scheme.split('_')]
+  lr_list         = [float(lr        ) for lr         in _vars.lr           .split('_')]
+  momentum_list   = [float(momentum  ) for momentum   in _vars.momentum     .split('_')]
 
   print(f'Starting at level {levels_list[0]}')
+
+  _vars.data_loader_iterators = dict(zip(
+    _vars.splits, [iter(_vars.data_loaders[split]) for split in _vars.splits],
+  ))
+  
+  def get_batch(split):
+    batch = next(_vars.data_loader_iterators[split], None)
+
+    if batch is None:
+      _vars.data_loader_iterators[split] = iter(_vars.data_loaders[split])
+      batch = next(_vars.data_loader_iterators[split], None)
+      if batch is None: 
+        raise Exception(f'Length of {split} data loader is 0.')
+
+    input, target = batch
+    batch = (input, target)
+
+    return batch
 
   for k, (num_epochs, level) in enumerate(zip(num_epochs_list, levels_list)):
     lr = lr_list[level]
     momentum = momentum_list[level]
 
-    for g in optimizer.param_groups: g['lr'] = lr
+    for g in _vars.optimizer.param_groups: g['lr'] = lr
 
-    if args.optimizer == 'SGD':
-      for g in optimizer.param_groups: g['momentum'] = momentum
+    if _vars.optimizer_name == 'SGD':
+      for g in _vars.optimizer.param_groups: g['momentum'] = momentum
 
-    print('optimizer', optimizer)
+    print('optimizer', _vars.optimizer)
 
-    epoch_time_start = time.time()
-    for epoch in tqdm.tqdm(range(num_epochs)):
-      (
-        model, training_loss, training_accuracy, validation_loss,
-        validation_accuracy,
-      ) = train_epoch(
-        training_dataloader, validation_dataloader, model, optimizer, 
-        criterion, device, level, args.mgrit,
+    # epoch_time_start = time.time()
+    for epoch in tqdm.tqdm(range(num_epochs + 1)):
+      if epoch > 0:
+        training_output = _vars.model.train_(
+          num_batches=len(_vars.data_loaders['training']),
+          compute_accuracy=False, print_times=False,
+          get_batch=lambda: get_batch('training'), 
+          **filter_keys(_vars.__dict__, ('model',)),
+        )
+
+      evaluation_output = _vars.model.evaluate(
+        num_batches=len(_vars.data_loaders['validation']),
+        compute_accuracy=False, print_times=False,
+        get_batch=lambda: get_batch('validation'), 
+        **filter_keys(_vars.__dict__, ('model',)),
       )
 
-      print(f'Epoch {str(epoch).zfill(2)         }' + \
-            f'\ttr_loss: {training_loss      :.4f}' + \
-            f'\ttr_acc: {training_accuracy   :.4f}' + \
-            f'\tva_loss: {validation_loss    :.4f}' + \
-            f'\tva_acc: {validation_accuracy :.4f}')
+      if epoch > 0: print(epoch, training_output, evaluation_output)
+      else: print(epoch, evaluation_output)
 
-      epoch_time_end = time.time()
-      print(f'Epoch time: {epoch_time_end - epoch_time_start} seconds')
-      epoch_time_start = time.time()
-
-    if k != len(num_epochs_list) - 1: 
+    if k != len(num_epochs_list) - 1:
       print(f'Changing from level {levels_list[k]} to level {levels_list[k+1]}')
 
   ########################################
-  
+
   print(f'Execution finished. Time: {time.time() - t0 : .2f}')
 
 if __name__ == '__main__':

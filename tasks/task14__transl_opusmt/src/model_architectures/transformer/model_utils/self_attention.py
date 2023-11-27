@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 # from .multihead_attention import MultiHeadAttention
-import sys; sys.path.append('model_architectures/transformer/transformer_utils')
+import sys; sys.path.append('model_architectures/transformer/model_utils')
 from multihead_attention import MultiHeadAttention
 
 class SelfAttention(nn.Module):
