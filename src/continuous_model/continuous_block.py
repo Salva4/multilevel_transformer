@@ -61,7 +61,7 @@ class ContinuousBlock(nn.Module):
   def forward(self, x, level=0, use_mgrit=False, **fwd_pass_details):
     output = {}
 
-    state_symbol = self.state_symbol
+    # state_symbol = self.state_symbol
     N = self.N // self.c**level  #self.Ns[level]
     T = self.T
     c = self.c
@@ -71,7 +71,7 @@ class ContinuousBlock(nn.Module):
 
     ode_fwd_details = {
       'N': N, 'T': T, 'c': c, 'solver': ode_solver, 'Φ': Φ, 'ψ': ψ,
-      'state_symbol': state_symbol,
+      # 'state_symbol': state_symbol,
     }
     fwd_pass_details.update(ode_fwd_details)
 

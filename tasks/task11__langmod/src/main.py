@@ -124,7 +124,7 @@ def main():
       ## Training
       if epoch > 0:
         training_output = _vars.model.train_(
-          num_batches=_vars.training_batches, 
+          num_batches=_vars.training_num_batches, 
           compute_accuracy=False, 
           print_times=False, 
           get_batch=lambda: get_batch('training'), 
@@ -133,7 +133,7 @@ def main():
 
       ## Evaluation
       evaluation_output = _vars.model.evaluate(
-        num_batches=_vars.evaluation_batches, 
+        num_batches=_vars.evaluation_num_batches, 
         compute_accuracy=False, 
         print_times=False, 
         get_batch=lambda: get_batch('validation'), 

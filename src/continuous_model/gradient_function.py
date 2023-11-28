@@ -23,7 +23,7 @@ class GradientFunction(torch.autograd.Function):
     T            = fwd_pass_details['T']
     ψ            = fwd_pass_details['ψ']
     solver       = fwd_pass_details['solver']
-    state_symbol = fwd_pass_details['state_symbol']
+    # state_symbol = fwd_pass_details['state_symbol']
 
     fwd_pass_details['F'] = F
     h = T/N

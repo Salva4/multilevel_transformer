@@ -2,7 +2,7 @@ import torch
 
 ## No-debug:
 @torch.no_grad()
-def solve_sequential(x0, N, T, c, Φ, F, state_symbol, **kwargs):
+def solve_sequential(x0, N, T, c, Φ, F, **kwargs):#state_symbol, **kwargs):
   # print('solve_sequential')
   h = T/N
   x = torch.zeros(
@@ -13,7 +13,8 @@ def solve_sequential(x0, N, T, c, Φ, F, state_symbol, **kwargs):
 
   for i in range(N):
     t = i*h
-    x[i+1] = Φ(t=t, x=x[i], h=h, F=F, state_symbol=state_symbol, **kwargs)
+    x[i+1] = Φ(t=t, x=x[i], h=h, F=F, #state_symbol=state_symbol, 
+               **kwargs)
 
   return x
 
