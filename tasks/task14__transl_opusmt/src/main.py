@@ -360,7 +360,7 @@ def main():
         )
 
       ## Evaluation
-      evaluation_output = _vars.model.evaluate(
+      validation_output = _vars.model.evaluate(
         num_batches=validation_num_batches,#100, 
         compute_accuracy=False, 
         print_times=False, 
@@ -368,8 +368,8 @@ def main():
         **filter_keys(_vars.__dict__, ('model',)),
       )
 
-      if epoch > 0: print(epoch, training_output, evaluation_output)
-      else        : print(epoch,                  evaluation_output)
+      if epoch > 0: print(epoch, training_output, validation_output)
+      else        : print(epoch,                  validation_output)
 
     if k != len(num_epochs_list) - 1:
       print(f' Changing from level {levels_list[k]} to level {levels_list[k+1]}')

@@ -39,8 +39,6 @@ def main():
   if _vars.debug:
     _vars.batch_size = 2
     _vars.context_window = 5
-    training_batches = 3
-    evaluation_batches = 1
     _vars.max_new_tokens = 10
     _vars.model_dimension = 8#32
     _vars.num_heads = 4
@@ -132,16 +130,16 @@ def main():
         )
 
       ## Evaluation
-      evaluation_output = _vars.model.evaluate(
-        num_batches=_vars.evaluation_num_batches, 
+      validation_output = _vars.model.evaluate(
+        num_batches=_vars.validation_num_batches, 
         compute_accuracy=False, 
         print_times=False, 
         get_batch=lambda: get_batch('validation'), 
         **filter_keys(_vars.__dict__, ('model',)),
       )
 
-      if epoch > 0: print(epoch, training_output, evaluation_output)
-      else        : print(epoch,                  evaluation_output)
+      if epoch > 0: print(epoch, training_output, validation_output)
+      else        : print(epoch,                  validation_output)
 
     if k != len(num_epochs_list) - 1:
       print(f' Changing from level {levels_list[k]} to level {levels_list[k+1]}')

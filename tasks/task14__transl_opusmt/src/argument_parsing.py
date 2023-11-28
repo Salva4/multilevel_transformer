@@ -4,9 +4,9 @@ def parse_arguments():
   parser = argparse.ArgumentParser()
 
   ## Data & training
-  parser.add_argument('--batch_size', type=int, default=4)#64)
-  parser.add_argument('--training_num_batches', type=int, default=None)#100)
-  parser.add_argument('--evaluation_num_batches', type=int, default=None)#100)
+  parser.add_argument('--batch_size'            , type=int, default=4)#64)
+  parser.add_argument('--training_num_batches'  , type=int, default=None)#100)
+  parser.add_argument('--validation_num_batches', type=int, default=None)#100)
 
   parser.add_argument('--num_epochs', type=str, default='2', help='10_10_10_10_10_...')
 

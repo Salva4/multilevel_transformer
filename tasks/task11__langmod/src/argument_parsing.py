@@ -11,7 +11,7 @@ def parse_arguments():
   parser.add_argument('--gradient_accumulation_size', type=int  , default=1            )
   parser.add_argument('--gradient_clipping_norm'    , type=float, default=None         )
   parser.add_argument('--training_num_batches'      , type=int  , default=1000         )
-  parser.add_argument('--evaluation_num_batches'    , type=int  , default=200          )
+  parser.add_argument('--validation_num_batches'    , type=int  , default=200          )
   parser.add_argument('--num_epochs'                , type=str  , default='5000', help='10_10_10_10_10_...')
 
   ## Optimizer
