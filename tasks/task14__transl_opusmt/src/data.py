@@ -8,18 +8,18 @@ src_language, tgt_language = 'en', 'de'
 dir_data = os.path.join('..', 'data', 'deen_translation')
 if 'data' not in os.listdir('..'): dir_data = '../' + dir_data  # try commenting this
 fn = {
-  'train': {
+  'training': {
     'src': 'train.y',#'train.x', 
     'tgt': 'train.x',#'train.y'
   }, 
-  'test': {
+  'validation': {
     'src': 'interpolate.y',#'interpolate.x', 
     'tgt': 'interpolate.x',#'interpolate.y',
   },
 }
 
 def obtain_data(_vars):
-  _vars.splits = ['train', 'test']
+  _vars.splits = ['training', 'validation']
   data_sets = {split: {'translation': []} for split in _vars.splits}  # init
   
   for split in _vars.splits:  # extract sentences from files 
@@ -47,11 +47,13 @@ def obtain_data(_vars):
   ).with_format('torch', device=_vars.device)
 
   data_loaders = {
-    'train': DataLoader(
-      data_set_dicts['train'], batch_size=_vars.batch_size, shuffle=True ,
+    'training': DataLoader(
+      data_set_dicts['training'], 
+      batch_size=_vars.batch_size, shuffle=True,
     ),
-    'test': DataLoader(
-      data_set_dicts['test' ], batch_size=_vars.batch_size, shuffle=False,
+    'validation': DataLoader(
+      data_set_dicts['validation' ], 
+      batch_size=_vars.batch_size, shuffle=False,
     )
   }
 

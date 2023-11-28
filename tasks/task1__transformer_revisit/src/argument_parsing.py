@@ -10,8 +10,8 @@ def parse_arguments():
 
   ## Optimizer
   parser.add_argument('--optimizer_name', type=str, default='SGD')
-  parser.add_argument('--lr', type=str, default='1e-2', help='lrlvl0_lrlvl1_...')  
-  parser.add_argument('--momentum', type=str, default='.9', help='momentumlvl0_momentumlvl1_...')
+  parser.add_argument('--learning_rate' , type=str, default=None, help='lrlvl0_lrlvl1_...')  
+  parser.add_argument('--momentum'      , type=str, default=None, help='momentumlvl0_momentumlvl1_...')
 
   ## Model
   parser.add_argument('--model_name', type=str, default='transformer') # Linear, Transformer
@@ -44,7 +44,7 @@ def parse_arguments():
 
   ## Debugging, seed and saving
   parser.add_argument('--debug', action='store_true')
-  # parser.add_argument('--seed' , type=int, default=0)#1337)
+  parser.add_argument('--seed' , type=int, default=0)
   # parser.add_argument('--save' , action='store_true')
   # parser.add_argument('--load' , action='store_true')
   # parser.add_argument('--models_dir', type=str, default=None)
@@ -88,8 +88,13 @@ def assert_and_correct_arguments(args):
   #       assert args.__dict__[v] == False
 
   ## Default values
+  num_level_changes = len(args.levels_scheme.split('_')) \
+                      if args.levels_scheme is not None else 1
   default_values = {
-    'T': f'{args.num_layers}',
+    'learning_rate': '_'.join(['1e-2']*num_level_changes),
+    'momentum'     : '_'.join(['.9'  ]*num_level_changes) \
+                     if args.optimizer_name == 'SGD' else None,
+    'T': args.num_layers,
     'ode_solver': 'Forward Euler',
     'levels_scheme': '0',
     'coarsening_factor': 2,

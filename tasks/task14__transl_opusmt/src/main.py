@@ -1,32 +1,30 @@
-# Author: Marc Salvadó Benasco
 
 print('Importing modules...')#, end=' ')
-import argparse
 import copy
 import torch
 import torch.nn as nn
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import AutoTokenizer
 # from transformers.models.marian.modeling_marian import MarianMTModel
 import sys
-print('-> Done.')
+print('-> Done.\n')
 
 print('Importing local files...')#, end=' ')
 sys.path.append('../../../src/')
 from model.model import Model
 from continuous_model.continuous_model import ContinuousModel
+from src_utils.filter_dict import filter_keys
+from src_utils.optimizer import initialize_optimizer
 
 from argument_parsing import parse_arguments, assert_and_correct_arguments
 from data import obtain_data
-from task_utils import copy_weights
-from train import evaluate_bleu
 from generation import generate
-print('-> Done.')
+print('-> Done.\n')
 
 print('Parsing arguments...')#, end=' ')
 args = parse_arguments()
 assert_and_correct_arguments(args)
-print('-> Done.')
-print(f'args: {args}')
+print('-> Done.\n')
+print(f'Args: {args}')
 
 _vars = copy.deepcopy(args)
 # _vars.debug = True
@@ -36,42 +34,42 @@ _vars = copy.deepcopy(args)
 
 def main():
   _vars.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-  print(f'Device: {_vars.device}')
+  print(f'Device: {_vars.device}\n')
 
-  torch.manual_seed(0)
+  torch.manual_seed(args.seed)
 
   _vars.name_model = "Helsinki-NLP/opus-mt-en-de"
-  print('Loading tokenizer...', end=' ')
+  print('Loading pre-trained tokenizer...', end=' ')
   _vars.tokenizer = AutoTokenizer.from_pretrained(_vars.name_model)
-  print('-> Done.')
+  print('-> Done.\n')
 
   _vars.pad_token_id = _vars.tokenizer.pad_token_id
   _vars.bos_token_id = _vars.pad_token_id
   _vars.eos_token_id = _vars.tokenizer.eos_token_id
 
-  print('Loading data...')
+  print('1. Loading data...')
   obtain_data(_vars)
-  print(f"Number of batches: " \
-      + f"train {len(_vars.data_loaders['train'])}, " \
-      + f"test, {len(_vars.data_loaders['test'])}.")
-  print('-> Done.')
+  print(f"Number of training batches: {  len(_vars.data_loaders['training'  ])}")
+  print(f"Number of validation batches: {len(_vars.data_loaders['validation'])}")
+  print('-> Done.\n')
 
-  print('Loading pre-trained model...')
-  _vars.pretrained_model = AutoModelForSeq2SeqLM.from_pretrained(
-    _vars.name_model,
-  ).to(_vars.device)
-  print('-> Done.')
-
+  print('2. Building model')
   continuous_blocks_num_layers = [
     _vars.num_encoder_layers, _vars.num_decoder_layers,
   ]
   _vars.model = Model(
     continuous_blocks_num_layers=continuous_blocks_num_layers, 
     initialize_weights=True, **_vars.__dict__,
-  )#Transformer(_vars)
-  # copy_weights(_vars.pretrained_model, _vars.model)
+  )
 
-  # print(_vars.pretrained_model)
+  if _vars.continuous:
+    print(' 2.1 Turning the model continuous')
+    continuous_blocks_T = [_vars.encoder_T, _vars.decoder_T]
+    _vars.model = ContinuousModel(
+      continuous_blocks_T=continuous_blocks_T, **_vars.__dict__,
+    )#.to(device)
+    print(' -> Done.\n')
+
   # print(_vars.model)
 
   # for p in _vars.pretrained_model.parameters(): print(p.shape, p.ravel()[:5])
@@ -300,9 +298,10 @@ def main():
   # for p in conv_trans.parameters(): print(p.shape, p.ravel()[:4])
   # sys.exit()
 
-  _vars.optimizer = torch.optim.Adam(_vars.model.parameters(), lr=_vars.lr)
-  # _vars.optimizer = torch.optim.Adam(conv_trans .parameters(), lr=_vars.lr)
+  _vars.optimizer = initialize_optimizer(**_vars.__dict__)
   _vars.criterion = nn.CrossEntropyLoss(ignore_index=_vars.pad_token_id)
+
+  print(f'3. Training models')
 
   _vars.data_loader_iterators = dict(zip(
     _vars.splits, [iter(_vars.data_loaders[split]) for split in _vars.splits],
@@ -324,84 +323,57 @@ def main():
 
     return batch
 
-  num_epochs_list = [
-    int(num_epochs) for num_epochs in _vars.num_epochs.split('-')
-  ]
+  num_epochs_list    = [  int(num_epochs   ) for num_epochs    in _vars.num_epochs   .split('_')]
+  levels_list        = [  int(level        ) for level         in _vars.levels_scheme.split('_')]
+  learning_rate_list = [float(learning_rate) for learning_rate in _vars.learning_rate.split('_')]
+  momentum_list      = [float(momentum     ) for momentum      in _vars.momentum     .split('_')] \
+                       if _vars.momentum is not None else [None]*len(levels_list)
 
-  ## Training
-  _vars_training_dict = _vars.__dict__.copy()
-  _ = _vars_training_dict.pop('model')
-  # print(next(_vars.model.continuous_blocks[1].layers[0].residual_layer.parameters()))
-  # print(next(conv_trans.F_decs[0].parameters()))
-  for num_epochs in num_epochs_list:
+  print(f' Starting at level {levels_list[0]}')
+
+  training_num_batches = _vars.training_num_batches \
+    if _vars.training_num_batches is not None \
+    else len(_vars.data_loaders['training'])
+  validation_num_batches = _vars.validation_num_batches \
+    if _vars.validation_num_batches is not None \
+    else len(_vars.data_loaders['validation'])
+
+  for k, (num_epochs, level, learning_rate, momentum) in enumerate(zip(
+    num_epochs_list, levels_list, learning_rate_list, momentum_list,
+  )):
+    for g in _vars.optimizer.param_groups: g['lr'] = learning_rate
+
+    if momentum is not None:
+      for g in _vars.optimizer.param_groups: g['momentum'] = momentum
+
+    # print(f'Optimizer: {_vars.optimizer}\n')
+
     for epoch in range(num_epochs + 1):
-      # torch.manual_seed(1)
-      _vars.data_loader_iterators['train'] = iter(_vars.data_loaders['train'])
-
-      ## Prints
-      # print(_vars.model.precontinuous_block.embedding.weight.data.ravel()[:10])
-      # print(_vars.model.precontinuous_block.positional_encoding_src.weight.data.ravel()[:10])
-      # print(_vars.model.precontinuous_block.positional_encoding_tgt.weight.data.ravel()[:10])
-      # print(_vars.model.continuous_blocks[1].layers[-1].residual_layer.F.self_attn.attn.k_proj.weight.ravel()[:10])
-      # print(_vars.model.continuous_blocks[1].layers[-1].residual_layer.F.self_attn.attn.k_proj.bias.ravel()[:10])
-      # print(_vars.model.continuous_blocks[1].layers[-1].residual_layer.F.self_attn.attn.v_proj.weight.ravel()[:10])
-      # print(_vars.model.continuous_blocks[1].layers[-1].residual_layer.F.self_attn.attn.v_proj.bias.ravel()[:10])
-      # print(_vars.model.continuous_blocks[1].layers[-1].residual_layer.F.self_attn.attn.q_proj.weight.ravel()[:10])
-      # print(_vars.model.continuous_blocks[1].layers[-1].residual_layer.F.self_attn.attn.q_proj.bias.ravel()[:10])
-      # print(_vars.model.continuous_blocks[1].layers[-1].residual_layer.F.self_attn.attn.out_proj.weight.ravel()[:10])
-      # print(_vars.model.continuous_blocks[1].layers[-1].residual_layer.F.self_attn.attn.out_proj.bias.ravel()[:10])
-      # print(_vars.model.postcontinuous_block.classifier.weight.ravel()[:10])
-      # print(_vars.model.postcontinuous_block.classifier.bias.ravel()[:10])
-      # print()
-      # print(_vars.model.continuous_blocks[0].layers[0].residual_layer.F.self_attn.attn.k_proj.weight.ravel()[:10])
-      # print(_vars.model.continuous_blocks[0].layers[1].residual_layer.F.self_attn.attn.k_proj.weight.ravel()[:10])
-      # print(_vars.model.continuous_blocks[1].layers[0].residual_layer.F.self_attn.attn.k_proj.weight.ravel()[:10])
-      # print(_vars.model.continuous_blocks[1].layers[1].residual_layer.F.self_attn.attn.k_proj.weight.ravel()[:10])
-      # print()
-
-      # for F in conv_trans.F_encs:
-      #   print(F.mlp.fc1.weight.ravel()[:10])
-      #   print(F.mlp.fc2.bias.ravel()[:10])
-      # print(conv_trans.classifier.weight.ravel()[:10])
-      # print(conv_trans.classifier.bias.ravel()[:10])
-      # print()
-
+      ## Training
       if epoch > 0:
         training_output = _vars.model.train_(
-          num_batches=100, compute_accuracy=False, print_times=False, 
-          get_batch=lambda: get_batch('train'), 
-          # gradient_accumulation_size=10, clipping_norm=.1,
-          **_vars_training_dict,
+          num_batches=training_num_batches,#100, 
+          compute_accuracy=False, 
+          print_times=False, 
+          get_batch=lambda: get_batch('training'), 
+          **filter_keys(_vars.__dict__, ('model',)),
         )
-        # training_output = _vars.model.static_train(conv_trans,
-        #   num_batches=100, compute_accuracy=False, print_times=False, 
-        #   get_batch=lambda: get_batch('train'), 
-        #   # gradient_accumulation_size=10, clipping_norm=.1,
-        #   **_vars_training_dict,
-        # )
+
+      ## Evaluation
       evaluation_output = _vars.model.evaluate(
-        num_batches=100, compute_accuracy=False, print_times=False, 
-        get_batch=lambda: get_batch('test' ), **_vars_training_dict,
+        num_batches=validation_num_batches,#100, 
+        compute_accuracy=False, 
+        print_times=False, 
+        get_batch=lambda: get_batch('validation'), 
+        **filter_keys(_vars.__dict__, ('model',)),
       )
-      # evaluation_output = _vars.model.static_evaluate(conv_trans,
-      #   num_batches=100, compute_accuracy=False, print_times=False, 
-      #   get_batch=lambda: get_batch('test'), **_vars_training_dict,
-      # )
 
       if epoch > 0: print(epoch, training_output, evaluation_output)
-      else: print(epoch, evaluation_output)
+      else        : print(epoch,                  evaluation_output)
 
-  # torch.manual_seed(1)
-
-  # # for epoch in range(_vars.num_epochs)
-  #   # train_epoch(_vars)
-
-  # print('Evaluating bleu')
-  # evaluate_bleu(_vars)
-  # print(_vars.candidate_corpus)
-  # print(_vars.reference_corpus)
-  # print(_vars.bleu)
-
+    if k != len(num_epochs_list) - 1:
+      print(f' Changing from level {levels_list[k]} to level {levels_list[k+1]}')
+  print('-> Done.\n')
 
 if __name__ == '__main__': main()
 

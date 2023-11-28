@@ -7,6 +7,7 @@ from .fwd_bwd_pass.solve_mgrit      import solve_mgrit
 
 sys.path.append('..')
 from ode_solvers.ode_solvers import Φ_ForwardEuler
+from src_utils.filter_dict import filter_keys
 
 LAYERS_IDX_CONSTANT = {'Forward Euler': 1, 'Heun': 1, 'RK4': 2}
 NUM_LAYERS_INVOLVED = {'Forward Euler': 1, 'Heun': 2, 'RK4': 3}
@@ -18,10 +19,11 @@ class GradientFunction(torch.autograd.Function):
     def F(t, x, **other_F_inputs):
       return ψ[round(t/h*LAYERS_IDX_CONSTANT[solver])](x, **other_F_inputs)
 
-    N = fwd_pass_details['N']
-    T = fwd_pass_details['T']
-    ψ = fwd_pass_details['ψ']
-    solver = fwd_pass_details['solver']
+    N            = fwd_pass_details['N']
+    T            = fwd_pass_details['T']
+    ψ            = fwd_pass_details['ψ']
+    solver       = fwd_pass_details['solver']
+    state_symbol = fwd_pass_details['state_symbol']
 
     fwd_pass_details['F'] = F
     h = T/N
@@ -45,7 +47,19 @@ class GradientFunction(torch.autograd.Function):
       with torch.enable_grad():
         inputs = y[i]
         inputs.requires_grad_()
-        outputs = Φ(t, inputs, h, F) - inputs
+
+        ## Strategy (I): compute jacobian once for each "layer" and multiply 
+        ##... each time for the propagated error.  --> CUDA out of memory
+        # J = torch.autograd.functional.jacobian(
+        #   func=lambda inputs: \
+        #     Φ(t=t, x=inputs, h=h, F=F, **other_F_inputs) - inputs, 
+        #   inputs=inputs,
+        # )  --> CUDA out of memory
+        # grads = g @ J.reshape(...)
+
+        ## Strategy (II): compute the gradients with autograd.grad each time.
+        ## Very slow, specially for MGRIT. 
+        outputs = Φ(t=t, x=inputs, h=h, F=F, **other_F_inputs) - inputs
         grads = torch.autograd.grad(
           outputs, (inputs,), g, allow_unused=True,
         )
@@ -93,7 +107,10 @@ class GradientFunction(torch.autograd.Function):
           parameters.extend(list(ψ[ii].parameters()))
 
         g = dy[N - 1 - i]
-        outputs = Φ(t, inputs, h, F) - inputs
+        outputs = Φ(
+          t=t, x=inputs, h=h, F=F, 
+          **filter_keys(bwd_pass_details, ('t', 'x', 'h', 'F')),
+        ) - inputs
         grads = torch.autograd.grad(
           outputs, (*parameters,), g, allow_unused=True,
         )
@@ -104,15 +121,6 @@ class GradientFunction(torch.autograd.Function):
         else: p.grad = dp
 
     return dy[-1], None, None, None
-
-
-
-
-
-
-
-
-
 
 
 

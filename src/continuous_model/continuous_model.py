@@ -1,14 +1,18 @@
 import numpy as np
+import os
 import torch
 import torch.nn as nn
+import sys
 
 from .continuous_block import ContinuousBlock
+
+sys.path.append(os.path.join('..'))
+from src_utils.filter_dict import filter_keys
 
 ##
 # Continuous transformer encoder layer using their code's scheme & <i>MultiheadAttention</i>
 class ContinuousModel(nn.Module):
-  def __init__(self, model, **kwargs_continuous_block):#, num_levels):
-    print('Continuous approach')
+  def __init__(self, model, continuous_blocks_T, **kwargs_continuous_block):#, num_levels):
     super().__init__()
     self.model = model
     # self.register_buffer('model', model)
@@ -22,9 +26,15 @@ class ContinuousModel(nn.Module):
             [layer.residual_layer for layer in continuous_block.layers]
           ),
           N=continuous_block.num_layers,
-          **kwargs_continuous_block,
+          T=continuous_blocks_T[continuous_block_idx],
+          state_symbol=continuous_block.state_symbol,
+          # sum_backward=(continuous_block_idx==1),
+          **filter_keys(kwargs_continuous_block, ('T',)),
+        ) \
+        for continuous_block_idx, continuous_block in enumerate(
+          self.model.continuous_blocks
         )
-      ] for continuous_block in self.model.continuous_blocks
+      ]
     )
     self.postcontinuous_block = self.model.postcontinuous_block
     

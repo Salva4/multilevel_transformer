@@ -72,7 +72,8 @@ class PreContinuousBlock(nn.Module):
   def embed_tgt(self, y, split_target=True, **kwargs):  # y: [b, L'+1]
     '''split_target is True during a conventional forward pass, where the 
     target must be split into target_inputs (to the model) and labels.
-    However, during generation, the targe_inputs are the whole target tensor.'''
+    However, during generation, the targe_inputs are the whole target tensor,
+    so split_arget is False.'''
 
     if split_target: 
       tgt = y[:, :-1]    #    tgt: [b, L']

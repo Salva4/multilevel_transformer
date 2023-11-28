@@ -11,10 +11,6 @@ def obtain_data(_vars):
                            TRAINING_DATA_PATH_DEBUG
   validation_data_path = VALIDATION_DATA_PATH if not _vars.debug else \
                          VALIDATION_DATA_PATH_DEBUG
-  print(
-    'training_data_path'  ,   training_data_path,
-    'validation_data_path', validation_data_path,
-  )
 
   vocabularies = input_pipeline.create_vocabularies(training_data_path)
   vocabulary_size = len(vocabularies['forms'])
@@ -24,6 +20,7 @@ def obtain_data(_vars):
   attributes_target = [input_pipeline.CoNLLAttributes.XPOS]
 
   training_data_set, training_data_loader = preprocessing.obtain_dataset(
+    split='training',
     filename=training_data_path, 
     vocabularies=vocabularies, 
     attributes_input=attributes_input, 
@@ -33,6 +30,7 @@ def obtain_data(_vars):
     seed=0,
   )
   validation_data_set, validation_data_loader = preprocessing.obtain_dataset(
+    split='validation',
     filename=validation_data_path, 
     vocabularies=vocabularies, 
     attributes_input=attributes_input, 

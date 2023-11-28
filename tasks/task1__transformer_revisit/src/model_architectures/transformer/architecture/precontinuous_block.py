@@ -7,19 +7,18 @@ class PreContinuousBlock(nn.Module):
     self, vocabulary_size, model_dimension, pad_token_id, **kwargs,
   ):
     super().__init__()#**kwargs)
-    self.Σ_size = vocabulary_size
-    self.d = model_dimension
+    self.model_dimension = model_dimension
     self.pad_token_id = pad_token_id
 
-    self.emb = nn.Embedding(vocabulary_size, model_dimension)#15514, self.d)
+    self.embedding = nn.Embedding(vocabulary_size, model_dimension)
     # self.dropout = nn.Dropout(p=.1)
-    self.posenc = TorchPositionalEncoding(self.d)
+    self.positional_encoding = TorchPositionalEncoding(self.model_dimension)
 
   def forward(self, x, **kwargs):
     padding_mask = (x == self.pad_token_id)#0)
-    x = self.emb(x)
+    x = self.embedding(x)
     # x = self.dropout(x)
-    x = self.posenc(x)
+    x = self.positional_encoding(x)
 
     return {'x': x, 'padding_mask': padding_mask}
 

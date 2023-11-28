@@ -5,11 +5,15 @@ def parse_arguments():
 
   ## Data & training
   parser.add_argument('--batch_size', type=int, default=4)#64)
+  parser.add_argument('--training_num_batches', type=int, default=None)#100)
+  parser.add_argument('--validation_num_batches', type=int, default=None)#100)
+
   parser.add_argument('--num_epochs', type=str, default='2', help='10_10_10_10_10_...')
 
   ## Optimizer
-  parser.add_argument('--lr', type=float, default='1e-4', help='lrlvl0_lrlvl1_...')
-  # parser.add_argument('--momentum', type=str, default='.9', help='momlvl0_momlvl1_...')
+  parser.add_argument('--optimizer_name', type=str, default='Adam')
+  parser.add_argument('--learning_rate' , type=str, default=None, help='lrlvl0_lrlvl1_...')  
+  parser.add_argument('--momentum'      , type=str, default=None, help='momentumlvl0_momentumlvl1_...')
 
   ## Model
   parser.add_argument('--model_name'        , type=str, default='transformer') # Linear, Transformer
@@ -21,7 +25,8 @@ def parse_arguments():
 
   ## Continuous model
   parser.add_argument('--continuous', action='store_true'     )
-  parser.add_argument('--T'         , type=float, default=None)
+  parser.add_argument('--encoder_T' , type=float, default=None)
+  parser.add_argument('--decoder_T' , type=float, default=None)
   parser.add_argument('--ode_solver', type=str  , default=None)
 
   ## Multilevel
@@ -44,7 +49,7 @@ def parse_arguments():
 
   ## Debugging, seed and saving
   parser.add_argument('--debug', action='store_true')
-  parser.add_argument('--seed' , type=int, default=0)#1337)
+  parser.add_argument('--seed' , type=int, default=0)
   parser.add_argument('--save' , action='store_true')
   parser.add_argument('--load' , action='store_true')
   # parser.add_argument('--models_dir', type=str, default=None)
@@ -61,7 +66,7 @@ def assert_and_correct_arguments(args):
   ## False --> False/None
   false_implies_falsenone = {
     'continuous': [
-      'T', 'ode_solver',
+      'encoder_T', 'decoder_T', 'ode_solver',
       'levels_scheme', 'coarsening_factor', 'multilevel_interpolation',
       'use_mgrit', 'use_mgopt',
     ],
@@ -89,8 +94,14 @@ def assert_and_correct_arguments(args):
   #       assert args.__dict__[v] == False
 
   ## Default values
+  num_level_changes = len(args.levels_scheme.split('_')) \
+                      if args.levels_scheme is not None else 1
   default_values = {
-    'T': f'{args.num_encoder_layers}-{args.num_decoder_layers}',
+    'learning_rate': '_'.join(['1e-4']*num_level_changes),
+    'momentum'     : '_'.join(['0.'  ]*num_level_changes) \
+                     if args.optimizer_name == 'SGD' else None,
+    'encoder_T': args.num_encoder_layers,
+    'decoder_T': args.num_decoder_layers,
     'ode_solver': 'Forward Euler',
     'levels_scheme': '0',
     'coarsening_factor': 2,

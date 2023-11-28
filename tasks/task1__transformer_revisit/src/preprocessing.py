@@ -15,7 +15,7 @@ class Dataset(torch.utils.data.Dataset):
   def __getitem__(self, idx):
     return self.data[idx]
 
-  def create_dataset(self, filename, vocabularies, attributes_input, 
+  def create_dataset(self, split, filename, vocabularies, attributes_input, 
                      attributes_target, batch_size, bucket_size):
     input_generator = sentences_from_conll_data(
       filename, vocabularies, attributes_input, 
@@ -40,7 +40,7 @@ class Dataset(torch.utils.data.Dataset):
 
       ctr += 1
 
-    print(f'#inputs: {ctr}')
+    print(f'Number of {split} samples: {ctr}')
 
     return data
 

@@ -4,25 +4,28 @@ def parse_arguments():
   parser = argparse.ArgumentParser()
 
   ## Data & training
-  parser.add_argument('--input_text'                , type=str  , default='shakespeare'                    )
+  parser.add_argument('--input_text'                , type=str  , default='shakespeare')
   parser.add_argument('--tokenization'              , type=str  , default='gpt2', help='character|gpt2'    )
-  parser.add_argument('--batch_size'                , type=int  , default=8                                )#64)  <-- revise 8->64
-  parser.add_argument('--context_window'            , type=int  , default=256                              )
-  parser.add_argument('--gradient_accumulation_size', type=int  , default=1                                )
-  parser.add_argument('--gradient_clipping_norm'    , type=float, default=None                             )
+  parser.add_argument('--batch_size'                , type=int  , default=8            )#64)  <-- revise 8->64
+  parser.add_argument('--context_window'            , type=int  , default=256          )
+  parser.add_argument('--gradient_accumulation_size', type=int  , default=1            )
+  parser.add_argument('--gradient_clipping_norm'    , type=float, default=None         )
+  parser.add_argument('--training_batches'          , type=int  , default=1000         )
+  parser.add_argument('--evaluation_batches'        , type=int  , default=200          )
   parser.add_argument('--num_epochs'                , type=str  , default='5000', help='10_10_10_10_10_...')
 
   ## Optimizer
-  parser.add_argument('--learning_rate', type=str, default='3e-4', help='lrlvl0_lrlvl1_...')  
-  # parser.add_argument('--momentum', type=str, default='.9', help='momlvl0_momlvl1_...')  
+  parser.add_argument('--optimizer_name', type=str, default='AdamW')
+  parser.add_argument('--learning_rate' , type=str, default=None, help='lrlvl0_lrlvl1_...')  
+  parser.add_argument('--momentum'      , type=str, default=None, help='momlvl0_momlvl1_...')  
 
   ## Model
   parser.add_argument('--model_name'     , type=str, default='transformer') # Linear, Transformer
-  parser.add_argument('--model_dimension', type=int, default=384)
-  parser.add_argument('--num_heads'      , type=int, default=6  )
-  parser.add_argument('--num_layers'     , type=int, default=6  )
+  parser.add_argument('--model_dimension', type=int, default=384          )
+  parser.add_argument('--num_heads'      , type=int, default=6            )
+  parser.add_argument('--num_layers'     , type=int, default=6            )
   parser.add_argument('--generate'       , action='store_true')
-  parser.add_argument('--max_new_tokens' , type=int, default=None)
+  parser.add_argument('--max_new_tokens' , type=int, default=None         )
 
   ## Continuous model
   parser.add_argument('--continuous', action='store_true')
@@ -49,7 +52,7 @@ def parse_arguments():
 
   ## Debugging, seed and saving
   parser.add_argument('--debug', action='store_true')
-  parser.add_argument('--seed' , type=int, default=0)#1337)
+  parser.add_argument('--seed' , type=int, default=0)
   parser.add_argument('--save' , action='store_true')
   parser.add_argument('--load' , action='store_true')
   # parser.add_argument('--models_dir', type=str, default=None)
@@ -94,8 +97,13 @@ def assert_and_correct_arguments(args):
   #       assert args.__dict__[v] == False
 
   ## Default values
+  num_level_changes = len(args.levels_scheme.split('_')) \
+                      if args.levels_scheme is not None else 1
   default_values = {
-    'T': f'{args.num_layers}',
+    'learning_rate': '_'.join(['3e-4']*num_level_changes),
+    'momentum'     : '_'.join(['0.'  ]*num_level_changes) \
+                     if args.optimizer_name == 'SGD' else None,
+    'T': args.num_layers,
     'ode_solver': 'Forward Euler',
     'levels_scheme': '0',
     'coarsening_factor': 2,

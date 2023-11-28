@@ -13,8 +13,10 @@ class ContinuousResidualLayer(nn.Module):
 
     # self.apply(init_weights)
 
-  def forward(self, x, y, mask_pad_tgt, mask_pad_mem, **kwargs):  # x: [b, L , d]
-    y = self.F(                                                   # y: [b, L', d]
+  def forward(self, y, x, mask_pad_tgt, mask_pad_mem, **kwargs):  # x: [b, L , d]
+    '''variable corresponding to state symbol (y) must be         # y: [b, L', d]
+    the first argument.'''
+    y = self.F(                                                   
       x=y, memory=x, 
       mask_pad_tgt=mask_pad_tgt, mask_pad_mem=mask_pad_mem,
     )

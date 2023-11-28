@@ -4,8 +4,10 @@ import os
 import torch
 # from transformers import GPT2Tokenizer, GPT2Model  <-- below
 
-def obtain_data(data_dir, _vars):
-  data_path = os.path.join(data_dir, _vars.input_text + '.txt')
+DATA_DIR = os.path.join('..', 'data')
+
+def obtain_data(_vars):
+  data_path = os.path.join(DATA_DIR, _vars.input_text + '.txt')
 
   print('1.1 Reading text')#, end='... ')
   with open(data_path, 'r', encoding='utf-8') as f:
