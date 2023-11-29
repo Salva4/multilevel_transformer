@@ -6,8 +6,8 @@ def parse_arguments():
   ## Data & training
   parser.add_argument('--batch_size'            , type=int, default=8)#64
   parser.add_argument('--max_length'            , type=int, default=2048)
-  parser.add_argument('--training_num_batches'  , type=int, default=None)
-  parser.add_argument('--validation_num_batches', type=int, default=None)
+  parser.add_argument('--num_training_batches'  , type=int, default=None)
+  parser.add_argument('--num_validation_batches', type=int, default=None)
   parser.add_argument('--num_epochs'            , type=str, default='1000000000', help='10_10_10_10_10_...')
 
   ## Optimizer

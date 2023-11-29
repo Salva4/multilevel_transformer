@@ -34,6 +34,11 @@ class PreContinuousBlock(nn.Module):
     # self.apply(init_weights) --> do like MarianModel
 
   def forward(self, **state):
+    ## Debugging enc-dec gradient_function
+    # return {'mask_pad_src': torch.zeros(size=state['x'].shape[:2], device=state['x'].device), 
+    #         'mask_pad_mem': torch.zeros(size=state['x'].shape[:2], device=state['x'].device), 
+    #         'mask_pad_tgt': torch.zeros(size=state['y'].shape[:2], device=state['x'].device), }  # debug
+
     state_update = {}
     state_update.update(self.embed_src(**state))
     state_update.update(self.embed_tgt(**state))

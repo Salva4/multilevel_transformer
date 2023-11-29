@@ -211,7 +211,7 @@ class Model(nn.Module):
 
       elif isinstance(criterion, nn.MSELoss):
         output = state['x']
-        loss = criterion(logits, target)
+        loss = criterion(output, target)
 
         state['output'] = output
 

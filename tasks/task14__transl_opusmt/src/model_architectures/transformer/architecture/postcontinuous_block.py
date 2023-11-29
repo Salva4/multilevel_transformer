@@ -9,6 +9,9 @@ class PostContinuousBlock(nn.Module):
     self.classifier = nn.Linear(model_dimension, len(tokenizer))
     # self.classifier.weight.data = E_matrix.data  # shared parameters
 
+    ## Debugging enc-dec gradient_function
+    # self.classifier = nn.Linear(model_dimension, model_dimension)
+
     # self.apply(init_weights)
 
   def forward(self, y, **kwargs):  # y: [b, L', d]

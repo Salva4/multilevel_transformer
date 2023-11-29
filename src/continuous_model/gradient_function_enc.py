@@ -15,7 +15,7 @@ NUM_LAYERS_INVOLVED = {'Forward Euler': 1, 'Heun': 2, 'RK4': 3}
 
 class GradientFunction(torch.autograd.Function):
   @staticmethod
-  def forward(ctx, x, use_mgrit, fwd_pass_details):
+  def forward(ctx, x, y, use_mgrit, fwd_pass_details):
     def F(t, x, **other_F_inputs):
       return ψ[round(t/h*LAYERS_IDX_CONSTANT[solver])](x, **other_F_inputs)
 
@@ -29,14 +29,14 @@ class GradientFunction(torch.autograd.Function):
     h = T/N
 
     solve = solve_sequential if not use_mgrit else solve_mgrit
-    y = solve(x, **fwd_pass_details)
+    X = solve(x, **fwd_pass_details)
 
     ctx.fwd_pass_details = fwd_pass_details
     ctx.h = h
     ctx.solve = solve
-    ctx.y = y
+    ctx.X = X
 
-    return y[-1]
+    return X[-1]
 
   @staticmethod
   def backward(ctx, *g):
@@ -45,7 +45,7 @@ class GradientFunction(torch.autograd.Function):
       t = T - h - t_inv
 
       with torch.enable_grad():
-        inputs = y[i]
+        inputs = X[i]
         inputs.requires_grad_()
 
         ## Strategy (I): compute jacobian once for each "layer" and multiply 
@@ -73,7 +73,7 @@ class GradientFunction(torch.autograd.Function):
     bwd_pass_details = ctx.fwd_pass_details
     h = ctx.h
     solve = ctx.solve
-    y = ctx.y
+    X = ctx.X
 
     N = bwd_pass_details['N']
     T = bwd_pass_details['T']
@@ -92,21 +92,21 @@ class GradientFunction(torch.autograd.Function):
     bwd_pass_details['F'] = dF
 
     g = g[0]
-    dy = solve(g, **bwd_pass_details)
+    dX = solve(g, **bwd_pass_details)
 
-    ctx.dy = dy
+    ctx.dX = dX
 
     for i in range(N):
       t = i*h
 
       with torch.enable_grad():
-        inputs = y[i]
+        inputs = X[i]
         inputs.requires_grad_()
         parameters = []
         for ii in range(i*LAYERS_IDX_CONSTANT[solver], i*LAYERS_IDX_CONSTANT[solver] + NUM_LAYERS_INVOLVED[solver]):
           parameters.extend(list(ψ[ii].parameters()))
 
-        g = dy[N - 1 - i]
+        g = dX[N - 1 - i]
         outputs = Φ(
           t=t, x=inputs, h=h, F=F, 
           **filter_keys(bwd_pass_details, ('t', 'x', 'h', 'F')),
@@ -120,7 +120,7 @@ class GradientFunction(torch.autograd.Function):
         if p.grad is not None: p.grad += dp
         else: p.grad = dp
 
-    return dy[-1], None, None, None
+    return dX[-1], None, None, None
 
 
 

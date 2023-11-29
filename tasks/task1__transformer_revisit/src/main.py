@@ -198,11 +198,11 @@ def main():
 
   print(f' Starting at level {levels_list[0]}')
 
-  training_num_batches = _vars.training_num_batches \
-    if _vars.training_num_batches is not None \
+  num_training_batches = _vars.num_training_batches \
+    if _vars.num_training_batches is not None \
     else len(_vars.data_loaders['training'])
-  validation_num_batches = _vars.validation_num_batches \
-    if _vars.validation_num_batches is not None \
+  num_validation_batches = _vars.num_validation_batches \
+    if _vars.num_validation_batches is not None \
     else len(_vars.data_loaders['validation'])
 
   for k, (num_epochs, level, learning_rate, momentum) in enumerate(zip(
@@ -219,7 +219,7 @@ def main():
       ## Training
       if epoch > 0:
         training_output = _vars.model.train_(
-          num_batches=len(_vars.data_loaders['training']),
+          num_batches=num_training_batches,
           compute_accuracy=False, 
           print_times=False,
           get_batch=lambda: get_batch('training'), 
@@ -228,7 +228,7 @@ def main():
 
       ## Evaluation
       validation_output = _vars.model.evaluate(
-        num_batches=len(_vars.data_loaders['validation']),
+        num_batches=num_validation_batches,
         compute_accuracy=False, 
         print_times=False,
         get_batch=lambda: get_batch('validation'), 

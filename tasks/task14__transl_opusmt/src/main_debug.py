@@ -66,10 +66,8 @@ def main():
     print(' 2.1 Turning the model continuous')
     continuous_blocks_T = [_vars.encoder_T, _vars.decoder_T]
     _vars.model = ContinuousModel(
-      continuous_blocks_T=continuous_blocks_T,
-      is_encoder_decoder_transformer=True,
-      **_vars.__dict__,
-    )
+      continuous_blocks_T=continuous_blocks_T, **_vars.__dict__,
+    )#.to(device)
     print(' -> Done.\n')
 
   # print(_vars.model)
@@ -340,42 +338,29 @@ def main():
     if _vars.num_validation_batches is not None \
     else len(_vars.data_loaders['validation'])
 
-  for k, (num_epochs, level, learning_rate, momentum) in enumerate(zip(
-    num_epochs_list, levels_list, learning_rate_list, momentum_list,
-  )):
-    for g in _vars.optimizer.param_groups: g['lr'] = learning_rate
+  batch = get_batch('training')
+  src, tgt = batch
+  src = torch.rand(src.shape[0], src.shape[1], _vars.model_dimension).to(_vars.device)
+  tgt = torch.rand(tgt.shape[0], tgt.shape[1]-1, _vars.model_dimension).to(_vars.device)
+  src.requires_grad_()
+  tgt.requires_grad_()
+  model_inputs = {
+    'input': src, 'target': tgt, 'criterion': nn.MSELoss(),#_vars.criterion, 
+    'compute_accuracy': False, 'level': 0,
+  }
+  loss = _vars.model(**model_inputs)['loss']
+  loss.backward()
+  ## (I) --> very very similar :) but very large numbers... :( (e+12)
+  # print('src.grad', src.grad)
+  # print('tgt.grad', tgt.grad)
+  # import sys; sys.exit()
 
-    if momentum is not None:
-      for g in _vars.optimizer.param_groups: g['momentum'] = momentum
-
-    # print(f'Optimizer: {_vars.optimizer}\n')
-
-    for epoch in range(num_epochs + 1):
-      ## Training
-      if epoch > 0:
-        training_output = _vars.model.train_(
-          num_batches=num_training_batches,#100, 
-          compute_accuracy=False, 
-          print_times=False, 
-          get_batch=lambda: get_batch('training'), 
-          **filter_keys(_vars.__dict__, ('model',)),
-        )
-
-      ## Evaluation
-      validation_output = _vars.model.evaluate(
-        num_batches=num_validation_batches,#100, 
-        compute_accuracy=False, 
-        print_times=False, 
-        get_batch=lambda: get_batch('validation'), 
-        **filter_keys(_vars.__dict__, ('model',)),
-      )
-
-      if epoch > 0: print(epoch, training_output, validation_output)
-      else        : print(epoch,                  validation_output)
-
-    if k != len(num_epochs_list) - 1:
-      print(f' Changing from level {levels_list[k]} to level {levels_list[k+1]}')
-  print('-> Done.\n')
+  ## (II) --> decoder: very similar. encoder: mostly exact but sometimes quite 
+  ## ... different.
+  for parameter in _vars.model.parameters(): 
+    if parameter.grad is None: print('None')
+    else:                      print(parameter.grad.ravel()[:10])
+  import sys; sys.exit()
 
 if __name__ == '__main__': main()
 
