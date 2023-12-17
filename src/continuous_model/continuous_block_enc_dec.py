@@ -28,46 +28,26 @@ class ContinuousBlock(nn.Module):
     self.ode_solver = ode_solver
     self.Φ = obtain_Φ(ode_solver) if state_symbol=='x' else \
              obtain_Φ_dec(ode_solver)
-    # self.num_levels = num_levels
-    # self.interpol = interpol
-
-    # self.Ns = []
-    # level = 0
-    # while Nf % c**level == 0:
-    #   self.Ns.append(Nf // c**level)
-    #   level += 1
 
     self.ψ = nn.ModuleList([])
 
     if self.ode_solver == 'Forward Euler':
-      # self.Φ = Φ_ForwardEuler
       for i in range(self.N): self.ψ.append(ψ[i])  # basis functions
 
     elif self.ode_solver == 'Heun':
-      # self.Φ = Φ_Heun
       for i in range(self.N): self.ψ.append(ψ[i])
       self.ψ.append(copy.deepcopy(ψ[-1]))
 
     elif self.ode_solver == 'RK4':
-      # self.Φ = Φ_RK4
       for i in range(self.N):
         self.ψ.append(ψ[i])
         self.ψ.append(copy.deepcopy(ψ[i]))
       self.ψ.append(copy.deepcopy(ψ[-1]))
 
-    # self.weights = [
-    #   'fc1.weight', 'fc1.bias',
-    #   'fc2.weight', 'fc2.bias',
-    #   'att.in_proj_weight', 'att.in_proj_bias', 'att.out_proj.weight', 'att.out_proj.bias',
-    #   'ln1.weight', 'ln1.bias',
-    #   'ln2.weight', 'ln2.bias'
-    # ]
-
   def forward(self, x, y, level=0, use_mgrit=False, **fwd_pass_details):
     output = {}
 
-    # state_symbol = self.state_symbol
-    N = self.N // self.c**level  #self.Ns[level]
+    N = self.N // self.c**level
     T = self.T
     c = self.c
     Φ = self.Φ
@@ -76,7 +56,6 @@ class ContinuousBlock(nn.Module):
 
     ode_fwd_details = {
       'N': N, 'T': T, 'c': c, 'solver': ode_solver, 'Φ': Φ, 'ψ': ψ,
-      # 'state_symbol': state_symbol,
     }
     fwd_pass_details.update(ode_fwd_details)
 
@@ -85,7 +64,7 @@ class ContinuousBlock(nn.Module):
                   GradientFunction_dec
     x = gradient_fn.apply(x, y, use_mgrit, fwd_pass_details)
 
-    ## Debug:
+    ## Debug 1/2 (2/2 in solve_sequential):
     # h = T/N
     # LAYERS_IDX_CONSTANT = {'Forward Euler': 1, 'Heun': 1, 'RK4': 2}
     # def F(t, x, **other_F_inputs):
@@ -100,12 +79,10 @@ class ContinuousBlock(nn.Module):
   def interpolate_weights(self, level, interpolation):
     c = self.c
     ψ_fine = self.ψ[::c**level]
-    # ψ_coarse = self.ψ[::c**(level+1)]
 
     if interpolation == 'constant':
       for i in range(c, len(ψ_fine), c):
         _ψ_coarse1 = ψ_fine[i-c]
-        # _ψ_coarse2 = ψ_fine[i]
 
         for ii in range(1, c):
           _ψ_to_interpolate = ψ_fine[i - c + ii]

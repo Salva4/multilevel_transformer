@@ -11,13 +11,11 @@ from .continuous_block_enc_dec import ContinuousBlock \
 sys.path.append(os.path.join('..'))
 from src_utils.filter_dict import filter_keys
 
-##
-# Continuous transformer encoder layer using their code's scheme & <i>MultiheadAttention</i>
 class ContinuousModel(nn.Module):
   def __init__(
     self, model, continuous_blocks_T, is_encoder_decoder_transformer=False,
     **kwargs_continuous_block,
-  ):#, num_levels):
+  ):
     super().__init__()
     self.model = model
     # self.register_buffer('model', model)
@@ -56,14 +54,18 @@ class ContinuousModel(nn.Module):
     )
     self.postcontinuous_block = self.model.postcontinuous_block
 
-      # interpol=self.interpol,
-
     # if self.init_method != 'None':
     #   self.init_params()
 
-    # self.num_params = self.weights_flat_().shape[0]
+    if hasattr(self.model, 'device'):
+      self.device = self.model.device
+      self.to(self.device)
 
   def forward(self, **state): return self.model.static_forward(self, **state)
+
+  def interpolate_weights(self, fine_level, interpolation):
+    for continuous_block in self.continuous_blocks:
+      continuous_block.interpolate_weights(fine_level, interpolation)
 
   def train_(self, **kwargs):
     '''Arguments:
@@ -125,237 +127,6 @@ class ContinuousModel(nn.Module):
   #     else:
   #       Exception('Initialization method unknown')
 
-  # # def init_weights_from_model(self, old_model):     <-- not used in MG/OPT
-  # #   self.emb.weight.data = old_model.emb.weight.data
-  # #   self.continuous_block.init_weights_from_model(old_model)
-  # #   self.ln3.weight.data = old_model.ln3.weight.data
-  # #   self.ln3.bias.data = old_model.ln3.bias.data
-  # #   self.fc3.weight.data = old_model.fc3.weight.data
-  # #   self.fc3.bias.data = old_model.fc3.bias.data
 
 
 
-  # def interpolate_weights_from(self, old_model, lr):
-  #   ## Pre
-  #   self.emb.weight.data += lr*old_model.emb.weight.data
-
-  #   ## Cont
-  #   self.continuous_block.interpolate_weights_from(old_model, lr)
-
-  #   ## Post
-  #   self.ln3.weight.data += lr*old_model.ln3.weight.data
-  #   self.ln3.bias.data += lr*old_model.ln3.bias.data
-  #   self.fc3.weight.data += lr*old_model.fc3.weight.data
-  #   self.fc3.bias.data += lr*old_model.fc3.bias.data
-
-  # def restrict_weights_from(self, old_model):
-  #   ## Pre
-  #   self.emb.weight.data = old_model.emb.weight.data.clone()
-
-  #   ## Cont
-  #   self.continuous_block.restrict_weights_from(old_model)
-
-  #   ## Post
-  #   self.ln3.weight.data = old_model.ln3.weight.data.clone()
-  #   self.ln3.bias.data = old_model.ln3.bias.data.clone()
-  #   self.fc3.weight.data = old_model.fc3.weight.data.clone()
-  #   self.fc3.bias.data = old_model.fc3.bias.data.clone()
-
-  # def update_diff_weights(self, old_model):
-  #   ## Pre
-  #   self.emb.weight.data -= old_model.emb.weight.data
-
-  #   ## Cont
-  #   self.continuous_block.update_diff_weights(old_model)
-
-  #   ## Post
-  #   self.ln3.weight.data -= old_model.ln3.weight.data
-  #   self.ln3.bias.data -= old_model.ln3.bias.data
-  #   self.fc3.weight.data -= old_model.fc3.weight.data
-  #   self.fc3.bias.data -= old_model.fc3.bias.data
-
-  # def weights_flat_(self):
-  #   weights = torch.cat((self.emb.weight.data.flatten(),
-  #              torch.cat([torch.cat([self.continuous_block.Rs[n].fc1.weight.data.flatten(),
-  #                    self.continuous_block.Rs[n].fc1.bias.data.flatten(),
-  #                    self.continuous_block.Rs[n].fc2.weight.data.flatten(),
-  #                    self.continuous_block.Rs[n].fc2.bias.data.flatten(),
-  #                    self.continuous_block.Rs[n].att.in_proj_weight.data.flatten(),
-  #                    self.continuous_block.Rs[n].att.in_proj_bias.data.flatten(),
-  #                    self.continuous_block.Rs[n].att.out_proj.weight.data.flatten(),
-  #                    self.continuous_block.Rs[n].att.out_proj.bias.data.flatten(),
-  #                    self.continuous_block.Rs[n].ln1.weight.data.flatten(),
-  #                    self.continuous_block.Rs[n].ln1.bias.data.flatten(),
-  #                    self.continuous_block.Rs[n].ln2.weight.data.flatten(),
-  #                    self.continuous_block.Rs[n].ln2.bias.data.flatten()], axis=0)
-  #                    for n in range(self.N)], axis=0),
-  #              self.ln3.weight.data.flatten(),
-  #              self.ln3.bias.data.flatten(),
-  #              self.fc3.weight.data.flatten(),
-  #              self.fc3.bias.data.flatten()),
-  #                     axis=0)
-  #   return weights
-
-  # def grad_(self):
-  #   if self.emb.weight.grad == None:
-  #     return None
-
-  #   grad = torch.cat((self.emb.weight.grad.flatten(),
-  #              torch.cat([torch.cat([self.continuous_block.Rs[n].fc1.weight.grad.flatten(),
-  #                    self.continuous_block.Rs[n].fc1.bias.grad.flatten(),
-  #                    self.continuous_block.Rs[n].fc2.weight.grad.flatten(),
-  #                    self.continuous_block.Rs[n].fc2.bias.grad.flatten(),
-  #                    self.continuous_block.Rs[n].att.in_proj_weight.grad.flatten(),
-  #                    self.continuous_block.Rs[n].att.in_proj_bias.grad.flatten(),
-  #                    self.continuous_block.Rs[n].att.out_proj.weight.grad.flatten(),
-  #                    self.continuous_block.Rs[n].att.out_proj.bias.grad.flatten(),
-  #                    self.continuous_block.Rs[n].ln1.weight.grad.flatten(),
-  #                    self.continuous_block.Rs[n].ln1.bias.grad.flatten(),
-  #                    self.continuous_block.Rs[n].ln2.weight.grad.flatten(),
-  #                    self.continuous_block.Rs[n].ln2.bias.grad.flatten()], axis=0)
-  #                    for n in range(self.N)], axis=0),
-  #              self.ln3.weight.grad.flatten(),
-  #              self.ln3.bias.grad.flatten(),
-  #              self.fc3.weight.grad.flatten(),
-  #              self.fc3.bias.grad.flatten()),
-  #                     axis=0)
-  #   return grad
-
-  # def Rxgrad_(self):
-  #   # cont_grads = [[ self.continuous_block.Rs[n].fc1.weight.grad,
-  #   #         self.continuous_block.Rs[n].fc1.bias.grad,
-  #   #         self.continuous_block.Rs[n].fc2.weight.grad,
-  #   #         self.continuous_block.Rs[n].fc2.bias.grad,
-  #   #         self.continuous_block.Rs[n].att.in_proj_weight.grad,
-  #   #         self.continuous_block.Rs[n].att.in_proj_bias.grad,
-  #   #         self.continuous_block.Rs[n].att.out_proj.weight.grad,
-  #   #         self.continuous_block.Rs[n].att.out_proj.bias.grad,
-  #   #         self.continuous_block.Rs[n].ln1.weight.grad,
-  #   #         self.continuous_block.Rs[n].ln1.bias.grad,
-  #   #         self.continuous_block.Rs[n].ln2.weight.grad,
-  #   #         self.continuous_block.Rs[n].ln2.bias.grad
-  #   #         ] for n in range(self.N)]
-
-  #   # Rxgrad = [
-  #   #   self.emb.weight.grad,
-  #   #   [
-  #   #     [
-  #   #       1/2*(
-  #   #           (1/2*cont_grads[2*n - 1][iw] if n > 0 else 0) +\
-  #   #           cont_grads[2*n][iw] +\
-  #   #           1/2*cont_grads[2*n + 1][iw]
-  #   #       ) for iw in range(len(cont_grads[0]))
-  #   #     ] for n in range(self.N//2)
-  #   #   ],
-  #   #   self.ln3.weight.grad,
-  #   #   self.ln3.bias.grad,
-  #   #   self.fc3.weight.grad,
-  #   #   self.fc3.bias.grad,
-  #   # ]
-  #   cont_grads = [[self.continuous_block.Rs[n].fc1.weight.grad.flatten(),
-  #           self.continuous_block.Rs[n].fc1.bias.grad.flatten(),
-  #           self.continuous_block.Rs[n].fc2.weight.grad.flatten(),
-  #           self.continuous_block.Rs[n].fc2.bias.grad.flatten(),
-  #           self.continuous_block.Rs[n].att.in_proj_weight.grad.flatten(),
-  #           self.continuous_block.Rs[n].att.in_proj_bias.grad.flatten(),
-  #           self.continuous_block.Rs[n].att.out_proj.weight.grad.flatten(),
-  #           self.continuous_block.Rs[n].att.out_proj.bias.grad.flatten(),
-  #           self.continuous_block.Rs[n].ln1.weight.grad.flatten(),
-  #           self.continuous_block.Rs[n].ln1.bias.grad.flatten(),
-  #           self.continuous_block.Rs[n].ln2.weight.grad.flatten(),
-  #           self.continuous_block.Rs[n].ln2.bias.grad.flatten()]
-  #           for n in range(self.N)]
-
-  #   #### No injection:
-  #   # Rxgrad = torch.cat((self.emb.weight.grad.flatten(),
-  #   #           torch.cat([torch.cat([1/2*(1/2*cont_grads[2*n - 1][iw] if n > 0 else 0) +\
-  #   #                       cont_grads[2*n][iw] +\
-  #   #                       1/2*cont_grads[2*n + 1][iw]
-  #   #                       for iw in range(len(cont_grads[0]))], axis=0)
-  #   #                  for n in range(self.N//2)], axis=0),
-  #   #           self.ln3.weight.grad.flatten(),
-  #   #           self.ln3.bias.grad.flatten(),
-  #   #           self.fc3.weight.grad.flatten(),
-  #   #           self.fc3.bias.grad.flatten()),
-  #   #               axis=0)
-  #   ## Yes injection:
-  #   Rxgrad = torch.cat((self.emb.weight.grad.flatten(),
-  #             torch.cat([torch.cat([cont_grads[2*n][iw]
-  #                         for iw in range(len(cont_grads[0]))], axis=0)
-  #                    for n in range(self.N//2)], axis=0),
-  #             self.ln3.weight.grad.flatten(),
-  #             self.ln3.bias.grad.flatten(),
-  #             self.fc3.weight.grad.flatten(),
-  #             self.fc3.bias.grad.flatten()),
-  #                 axis=0)
-  #   ####
-  #   return Rxgrad
-
-  # def add2wgrad(self, dg):
-  #   # idx = 0
-
-  #   # self.emb.weight.grad.data += dg[idx : idx + 15514*128].reshape(15514, 128)
-  #   # idx += 15514*128
-
-  #   # for n in range(self.continuous_block.N):
-  #   #   self.continuous_block.Rs[n].fc1.weight.grad.data += dg[idx : idx + 128*128].reshape(128, 128)
-  #   #   idx += 128*128
-  #   #   self.continuous_block.Rs[n].fc1.bias.grad.data += dg[idx : idx + 128]
-  #   #   idx += 128
-  #   #   self.continuous_block.Rs[n].fc2.weight.grad.data += dg[idx : idx + 128*128].reshape(128, 128)
-  #   #   idx += 128*128
-  #   #   self.continuous_block.Rs[n].fc2.bias.grad.data += dg[idx : idx + 128]
-  #   #   idx += 128
-  #   #   self.continuous_block.Rs[n].att.in_proj_weight.grad.data += dg[idx: idx + 384*128].reshape(384, 128)
-  #   #   idx += 384*128
-  #   #   self.continuous_block.Rs[n].att.in_proj_bias.grad.data += dg[idx: idx + 384]
-  #   #   idx += 384
-  #   #   self.continuous_block.Rs[n].att.out_proj.weight.grad.data += dg[idx: idx + 128*128].reshape(128, 128)
-  #   #   idx += 128*128
-  #   #   self.continuous_block.Rs[n].att.out_proj.bias.grad.data += dg[idx: idx + 128]
-  #   #   idx += 128
-  #   #   self.continuous_block.Rs[n].ln1.weight.grad.data += dg[idx: idx + 128]
-  #   #   idx += 128
-  #   #   self.continuous_block.Rs[n].ln1.bias.grad.data += dg[idx: idx + 128]
-  #   #   idx += 128
-  #   #   self.continuous_block.Rs[n].ln2.weight.grad.data += dg[idx: idx + 128]
-  #   #   idx += 128
-  #   #   self.continuous_block.Rs[n].ln2.bias.grad.data += dg[idx: idx + 128]
-  #   #   idx += 128
-
-  #   # self.ln3.weight.grad.data += dg[idx: idx + 128]
-  #   # idx += 128
-  #   # self.ln3.bias.grad.data += dg[idx: idx + 128]
-  #   # idx += 128
-  #   # self.fc3.weight.grad.data += dg[idx: idx + 49*128].reshape(49, 128)
-  #   # idx += 49*128
-  #   # self.fc3.bias.grad.data += dg[idx: idx + 49]
-  #   # idx += 49
-  #   # assert idx == dg.shape[0] and dg.ndim == 1
-
-  #   ## Sad:
-  #   if type(dg) == list:
-  #     dg = iter(dg)
-
-  #   self.emb.weight.grad.data += next(dg)
-
-  #   for n in range(self.continuous_block.N):
-  #     self.continuous_block.Rs[n].fc1.weight.grad.data += next(dg)
-  #     self.continuous_block.Rs[n].fc1.bias.grad.data += next(dg)
-  #     self.continuous_block.Rs[n].fc2.weight.grad.data += next(dg)
-  #     self.continuous_block.Rs[n].fc2.bias.grad.data += next(dg)
-  #     self.continuous_block.Rs[n].att.in_proj_weight.grad.data += next(dg)
-  #     self.continuous_block.Rs[n].att.in_proj_bias.grad.data += next(dg)
-  #     self.continuous_block.Rs[n].att.out_proj.weight.grad.data += next(dg)
-  #     self.continuous_block.Rs[n].att.out_proj.bias.grad.data += next(dg)
-  #     self.continuous_block.Rs[n].ln1.weight.grad.data += next(dg)
-  #     self.continuous_block.Rs[n].ln1.bias.grad.data += next(dg)
-  #     self.continuous_block.Rs[n].ln2.weight.grad.data += next(dg)
-  #     self.continuous_block.Rs[n].ln2.bias.grad.data += next(dg)
-
-  #   self.ln3.weight.grad.data += next(dg)
-  #   self.ln3.bias.grad.data += next(dg)
-  #   self.fc3.weight.grad.data += next(dg)
-  #   self.fc3.bias.grad.data += next(dg)
-
-  #   assert next(dg, None) == None

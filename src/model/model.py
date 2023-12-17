@@ -8,7 +8,6 @@ import sys
 from .save import save_model, load_model
 from .train import train, evaluate
 
-# from ..src_utils.filter_dict import filter_keys
 sys.path.append('..')
 from src_utils.filter_dict import filter_keys
 
@@ -50,7 +49,6 @@ class ContinuousLayer(nn.Module):
     self.residual_layer = ResidualLayer(**kwargs)
     self.state_symbol = self.residual_layer.state_symbol \
       if 'state_symbol' in dir(ResidualLayer) else 'x'
-
 
   def forward(self, **kwargs):
     state, state_symbol = kwargs[self.state_symbol], self.state_symbol
@@ -159,7 +157,8 @@ class Model(nn.Module):
 
     if store_hidden_states: 
       hidden_states['precontinuous_block'] = {
-        'x': state['x'].clone(), 'y': state['y'].clone(),
+        'x': state['x'].clone() if state['x'] is not None else None, 
+        'y': state['y'].clone() if state['y'] is not None else None,
       }
 
     for i, continuous_block in enumerate(model.continuous_blocks):
@@ -201,9 +200,17 @@ class Model(nn.Module):
           with torch.no_grad():
             predictions = logits.argmax(dim=-1)
             pad_id = criterion.__dict__['ignore_index']
-            not_pad = (target != pad_id)
-            correct = ((predictions == target) * not_pad).sum().item()
-            total = not_pad.sum().item()
+
+            if compute_accuracy in [True, 'tokens']:
+              not_pad = (target != pad_id)
+              correct = ((predictions == target) * not_pad).sum().item()
+              total = not_pad.sum().item()
+
+            elif compute_accuracy == 'sentences':
+              pad = (target == pad_id)
+              correct = torch.logical_or(predictions == target, target == pad) \
+                        .prod(dim=1).sum(dim=0).item()
+              total = predictions.shape[0]
 
             state['predictions'] = predictions
             state['correct'] = correct

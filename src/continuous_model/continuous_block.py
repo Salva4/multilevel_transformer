@@ -5,7 +5,7 @@ import sys
 
 sys.path.append('../../../src/')
 
-from ode_solvers.ode_solvers import obtain_Φ#Φ_ForwardEuler, Φ_Heun, Φ_RK4
+from ode_solvers.ode_solvers import obtain_Φ
 from mgrit.mgrit import MGRIT
 from continuous_model.gradient_function import GradientFunction
 
@@ -23,77 +23,58 @@ class ContinuousBlock(nn.Module):
     self.c = c = coarsening_factor
     self.ode_solver = ode_solver
     self.Φ = obtain_Φ(ode_solver)
-    # self.num_levels = num_levels
-    # self.interpol = interpol
-
-    # self.Ns = []
-    # level = 0
-    # while Nf % c**level == 0:
-    #   self.Ns.append(Nf // c**level)
-    #   level += 1
 
     self.ψ = nn.ModuleList([])
 
     if self.ode_solver == 'Forward Euler':
-      # self.Φ = Φ_ForwardEuler
       for i in range(self.N): self.ψ.append(ψ[i])  # basis functions
 
     elif self.ode_solver == 'Heun':
-      # self.Φ = Φ_Heun
       for i in range(self.N): self.ψ.append(ψ[i])
       self.ψ.append(copy.deepcopy(ψ[-1]))
 
     elif self.ode_solver == 'RK4':
-      # self.Φ = Φ_RK4
       for i in range(self.N):
         self.ψ.append(ψ[i])
         self.ψ.append(copy.deepcopy(ψ[i]))
       self.ψ.append(copy.deepcopy(ψ[-1]))
 
-    # self.weights = [
-    #   'fc1.weight', 'fc1.bias',
-    #   'fc2.weight', 'fc2.bias',
-    #   'att.in_proj_weight', 'att.in_proj_bias', 'att.out_proj.weight', 'att.out_proj.bias',
-    #   'ln1.weight', 'ln1.bias',
-    #   'ln2.weight', 'ln2.bias'
-    # ]
-
   def forward(self, x, level=0, use_mgrit=False, **fwd_pass_details):
     output = {}
 
-    # state_symbol = self.state_symbol
-    N = self.N // self.c**level  #self.Ns[level]
+    N = self.N // self.c**level
     T = self.T
     c = self.c
     Φ = self.Φ
     ode_solver = self.ode_solver
     ψ = self.ψ[::c**level]
 
+    assert N > 0, f'Level {level} incompatible with {self.N} layers at the finest level and a coarsening factor of {self.c}'
+
     ode_fwd_details = {
       'N': N, 'T': T, 'c': c, 'solver': ode_solver, 'Φ': Φ, 'ψ': ψ,
-      # 'state_symbol': state_symbol,
     }
     fwd_pass_details.update(ode_fwd_details)
 
     ## No-debug:
-    x = GradientFunction.apply(x, use_mgrit, fwd_pass_details)
+    # x = GradientFunction.apply(x, use_mgrit, fwd_pass_details)
 
-    ## Debug:
-    # h = T/N
-    # LAYERS_IDX_CONSTANT = {'Forward Euler': 1, 'Heun': 1, 'RK4': 2}
-    # def F(t, x, **other_F_inputs):
-    #   return ψ[round(t/h*LAYERS_IDX_CONSTANT[ode_solver])](x, **other_F_inputs)
-    # fwd_pass_details['F'] = F
-    # x = solve_sequential(x, **fwd_pass_details)
+    ## Debug 1/2 (2/2 in solve_sequential):
+    h = T/N
+    LAYERS_IDX_CONSTANT = {'Forward Euler': 1, 'Heun': 1, 'RK4': 2}
+    def F(t, x, **other_F_inputs):
+      return ψ[round(t/h*LAYERS_IDX_CONSTANT[ode_solver])](x, **other_F_inputs)
+    fwd_pass_details['F'] = F
+    x = solve_sequential(x, **fwd_pass_details)
 
     output['x'] = x
 
     return output
 
-  def interpolate_weights(self, level, interpolation):
+  def interpolate_weights(self, fine_level, interpolation):
     c = self.c
-    ψ_fine = self.ψ[::c**level]
-    # ψ_coarse = self.ψ[::c**(level+1)]
+    ψ_fine = self.ψ[::c**fine_level]
+    # ψ_coarse = self.ψ[::c**(fine_level+1)]
 
     if interpolation == 'constant':
       for i in range(c, len(ψ_fine), c):
@@ -105,13 +86,15 @@ class ContinuousBlock(nn.Module):
           for p_c1, p_to_interpolate in zip(
             _ψ_coarse1.parameters(), _ψ_to_interpolate.parameters(),
           ):
-            p_to_interpolate.data = p_c1.data
+            # p_to_interpolate.data = p_c1.data
+            p_to_interpolate.data = p_c1.data.clone()
 
       while i < len(ψ_fine) - 1:
         for p_last, p_to_interpolate in zip(
           ψ_fine[i].parameters(), ψ_fine[i+1].parameters(),
         ):
-          p_to_interpolate.data = p_last.data
+          # p_to_interpolate.data = p_last.data
+          p_to_interpolate.data = p_last.data.clone()
 
         i += 1
 
@@ -127,7 +110,8 @@ class ContinuousBlock(nn.Module):
             _ψ_coarse2.parameters(),
             _ψ_to_interpolate.parameters(),
           ):
-            p_to_interpolate.data = (1 - ii/c)*p_c1.data + (ii/c)*p_c2.data
+            # p_to_interpolate.data = (1 - ii/c)*p_c1.data + (ii/c)*p_c2.data
+            p_to_interpolate.data = (1 - ii/c)*p_c1.data.clone() + (ii/c)*p_c2.data.clone()
 
       while i < len(ψ_fine) - 1:
         for p_lastbutone, p_last, p_to_interpolate in zip(
@@ -135,8 +119,10 @@ class ContinuousBlock(nn.Module):
           ψ_fine[i  ].parameters(),
           ψ_fine[i+1].parameters(),
         ):
+          # p_to_interpolate.data = \
+          #   p_last.data + (p_last.data - p_lastbutone.data)
           p_to_interpolate.data = \
-            p_last.data + (p_last.data - p_lastbutone.data)
+            p_last.data.clone() + (p_last.data.clone() - p_lastbutone.data.clone())
 
         i += 1
 

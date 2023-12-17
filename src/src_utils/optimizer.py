@@ -4,7 +4,7 @@ def initialize_optimizer(optimizer_name, model, **kwargs):
   if optimizer_name == 'SGD':
     optimizer = torch.optim.SGD(
       model.parameters(), lr=0., momentum=0.,
-    )#1e-2, .9)
+    )
 
   elif optimizer_name == 'Adam':
     optimizer = torch.optim.Adam(

@@ -11,7 +11,6 @@ from src_utils.filter_dict import filter_keys
 
 LAYERS_IDX_CONSTANT = {'Forward Euler': 1, 'Heun': 1, 'RK4': 2}
 NUM_LAYERS_INVOLVED = {'Forward Euler': 1, 'Heun': 2, 'RK4': 3}
-# NUM_LAYERS_TOTAL = lambda N: {'Forward Euler': N, 'Heun': N+1, 'RK4': 2*N + 1}
 
 class GradientFunction(torch.autograd.Function):
   @staticmethod
@@ -23,7 +22,6 @@ class GradientFunction(torch.autograd.Function):
     T            = fwd_pass_details['T']
     ψ            = fwd_pass_details['ψ']
     solver       = fwd_pass_details['solver']
-    # state_symbol = fwd_pass_details['state_symbol']
 
     fwd_pass_details['F'] = F
     h = T/N
@@ -81,11 +79,6 @@ class GradientFunction(torch.autograd.Function):
     Φ = bwd_pass_details.pop('Φ')
     F = bwd_pass_details.pop('F')
     ψ = bwd_pass_details['ψ']
-
-    # Np = NUM_LAYERS_TOTAL(N)[solver]
-    # dparameters = [
-    #   [torch.zeros_like(p) for p in ψ[i].parameters()] for i in range(len(ψ))
-    # ]
 
     bwd_pass_details['solver'] = 'Forward Euler'
     bwd_pass_details['Φ'] = Φ_ForwardEuler

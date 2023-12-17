@@ -2,7 +2,6 @@ import torch
 
 def coarse_grid_error_approximation(uΔ, NΔ, Φ, F, hΔ, rΔ, **kwargs):
   vΔ = uΔ.clone()
-  #if rΔ is not None: vΔ[0] += rΔ[0]  <-- rΔ[0] should always be 0
   for i in range(NΔ):  # serial for
     t = i*hΔ
     vΔ[i+1] = Φ(t=t, x=vΔ[i], h=hΔ, F=F, **kwargs) \
@@ -17,7 +16,6 @@ def compute_r(u, N, Φ, F, h, **kwargs):
     t = i*h
     a[i+1] = u[i+1].clone() - Φ(t=t, x=u[i], h=h, F=F, **kwargs)
 
-  ## r := g - a, with g[0] = u0, g[1:] = 0
   r = -a.clone()
   _ = r[0].zero_()
   return r
@@ -45,7 +43,6 @@ def MGRIT(u0, N, T, c, Φ, F, relaxation, num_iterations, **kwargs):
 
   NΔ = N//c
   h, hΔ = T/N, T/NΔ
-  # FΔ = lambda t, x, **kwargs: F(c*t, x, **kwargs)
 
   u = u0.new(size=(N+1, *u0.shape)).zero_()  # randomize?
   u[0] = u0.clone()

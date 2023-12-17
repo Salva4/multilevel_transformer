@@ -18,7 +18,6 @@ def load_model(model, model_name, models_dir=None, optimizer=None):
   model_path = os.path.join(models_dir, model_name)
 
   if not os.path.exists(model_path):
-    # print('The model could not be loaded because the path does not exist.')
     return {'error': 'The path does not exist.'}
 
   model_state = torch.load(model_path)
