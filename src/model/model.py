@@ -273,42 +273,6 @@ class Model(nn.Module):
   @staticmethod
   def static_load(model, **kwargs): return load_model(model, **kwargs)
 
-  # def init_params(self):
-  #   self.apply(self._init_layers)
-
-  # def _init_layers(self, m):
-  #   classname = m.__class__.__name__
-  #   if isinstance(m, nn.Conv2d):
-  #     if m.weight is not None:
-  #       torch.nn.init.xavier_uniform_(m.weight, gain=np.sqrt(2))
-
-  #     if m.bias is not None:
-  #       torch.nn.init.constant_(m.bias, 0)
-
-  #   if isinstance(m, nn.BatchNorm2d):
-  #     if m.weight is not None:
-  #       torch.nn.init.constant_(m.weight, 1)
-
-  #     if m.bias is not None:
-  #       torch.nn.init.constant_(m.bias, 0)
-
-  #   if isinstance(m, nn.Linear):
-  #     if m.weight is not None:
-  #       torch.nn.init.normal_(m.weight)
-
-  #     if m.bias is not None:
-  #       torch.nn.init.constant_(m.bias, 0)
-
-  #   if isinstance(m, nn.MultiheadAttention):
-  #     print(f'Init method: {self.init_method}')
-  #     if self.init_method == 'Normal':
-  #       m.in_proj_weight.data.normal_(mean=0.0, std=0.02)
-  #       m.out_proj.weight.data.normal_(mean=0.0, std=0.02)
-  #     elif self.init_method == 'Xavier':
-  #       torch.nn.init.xavier_uniform_(m.in_proj_weight, gain=np.sqrt(2))
-  #       torch.nn.init.xavier_uniform_(m.out_proj.weight, gain=np.sqrt(2))
-  #     else:
-  #       Exception('Initialization method unknown')
 
 
 

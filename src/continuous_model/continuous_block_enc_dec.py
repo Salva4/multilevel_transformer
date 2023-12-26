@@ -61,12 +61,12 @@ class ContinuousBlock(nn.Module):
     }
     fwd_pass_details.update(ode_fwd_details)
 
-    ## No-debug:
+    ## OPTION (I), corresponding to OPTION (I) in continuous_block.py. 
     # gradient_fn = GradientFunction_enc if self.state_symbol == 'x' else \
     #               GradientFunction_dec
     # x = gradient_fn.apply(x, y, use_mgrit, fwd_pass_details)
 
-    ## Debug 1/2 (2/2 in solve_sequential):
+    ## OPTION (II), corresponding to OPTION (II) in continuous_block.py.
     _solve_sequential = solve_sequential if self.state_symbol == 'x' else \
                         solve_sequential_dec
     h = T/N
@@ -77,6 +77,9 @@ class ContinuousBlock(nn.Module):
       )
     fwd_pass_details['F'] = F
     x = _solve_sequential(x0=x, y=y, **fwd_pass_details)
+
+    ## Regardless of which is the selected option, the solve_sequential.py
+    ##....file must be commented/uncommented correspondingly.
 
     output[self.state_symbol] = x
 

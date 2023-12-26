@@ -48,7 +48,6 @@ class ContinuousBlock(nn.Module):
     Φ = self.Φ
     ψ = self.ψ[::c**level]
 
-    ## Just added
     if fwd_pass_details.get('ode_solver', self.ode_solver) != self.ode_solver:
       ode_solver = fwd_pass_details['ode_solver']
       Φ = obtain_Φ(ode_solver)
@@ -65,7 +64,6 @@ class ContinuousBlock(nn.Module):
         ψ = ψ[:-1:2]
 
     else: ode_solver = self.ode_solver
-    ####
 
     assert N > 0, f'Level {level} incompatible with {self.N} layers at the finest level and a coarsening factor of {self.c}'
 
@@ -74,16 +72,24 @@ class ContinuousBlock(nn.Module):
     }
     fwd_pass_details.update(ode_fwd_details)
 
-    ## No-debug:
+    ## OPTION (I): my implementation of the backward pass via 
+    ##...torch.autograd.function. SLOW but works. Only used when comparing the
+    ##...MGRIT method, as usual PyTorch implementation is incompatible with
+    ##...MGRIT.
     # x = GradientFunction.apply(x, use_mgrit, fwd_pass_details)
 
-    ## Debug 1/2 (2/2 in solve_sequential):
+
+    ## OPTION (II): PyTorch implementation. Faster but incompatible with
+    ##...MGRIT.
     h = T/N
     LAYERS_IDX_CONSTANT = {'Forward Euler': 1, 'Heun': 1, 'RK4': 2}
     def F(t, x, **other_F_inputs):
       return ψ[round(t/h*LAYERS_IDX_CONSTANT[ode_solver])](x, **other_F_inputs)
     fwd_pass_details['F'] = F
     x = solve_sequential(x, **fwd_pass_details)
+
+    ## Regardless of which is the selected option, the solve_sequential.py
+    ##....file must be commented/uncommented correspondingly.
 
     output['x'] = x
 

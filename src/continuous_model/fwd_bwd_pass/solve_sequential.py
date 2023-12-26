@@ -1,6 +1,6 @@
 import torch
 
-## No-debug:
+## OPTION (I) (see continuous_block.py):
 # @torch.no_grad()
 # def solve_sequential(x0, N, T, c, Φ, F, **kwargs):
 #   h = T/N
@@ -16,7 +16,8 @@ import torch
 
 #   return x
 
-## Debug 2/2 (1/2 in continuous_block):
+
+## OPTION (II) (see continuous_block.py):
 def solve_sequential(x0, N, T, c, Φ, F, **kwargs):
   h = T/N
   x = x0

@@ -184,7 +184,6 @@ def evaluate(
   accuracy_counter = AccuracyCounter()
 
   for batch_idx in range(num_batches):
-    # torch.manual_seed(-(batch_idx+1))
     model_inputs, get_batch_time = prepare_inputs(
       get_batch, device, criterion, compute_accuracy, details,
     )
