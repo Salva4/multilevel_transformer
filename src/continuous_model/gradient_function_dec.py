@@ -49,17 +49,17 @@ class GradientFunction(torch.autograd.Function):
         x.requires_grad_()
         y.requires_grad_()
 
-        ## Strategy (I): compute jacobian once for each "layer" and multiply 
+        ## Strategy (I): compute jacobian once for each "layer" and multiply
         ##... each time for the propagated error.  --> CUDA out of memory
         # J = torch.autograd.functional.jacobian(
         #   func=lambda inputs: \
-        #     Φ(t=t, x=inputs, h=h, F=F, **other_F_inputs) - inputs, 
+        #     Φ(t=t, x=inputs, h=h, F=F, **other_F_inputs) - inputs,
         #   inputs=inputs,
         # )  --> CUDA out of memory
         # grads = g @ J.reshape(...)
 
         ## Strategy (II): compute the gradients with autograd.grad each time.
-        ## Very slow, specially for MGRIT. 
+        ## Very slow, specially for MGRIT.
         outputs = Φ(t=t, x=x, y=y, h=h, F=F, **other_F_inputs) - y
         grads = torch.autograd.grad(
           outputs, (x, y), g, allow_unused=True,
@@ -104,14 +104,14 @@ class GradientFunction(torch.autograd.Function):
         Y[i].requires_grad_()
         parameters = []
         for ii in range(
-          i*LAYERS_IDX_CONSTANT[solver], 
+          i*LAYERS_IDX_CONSTANT[solver],
           i*LAYERS_IDX_CONSTANT[solver] + NUM_LAYERS_INVOLVED[solver]
         ):
           parameters.extend(list(ψ[ii].parameters()))
 
         g = dY[N - 1 - i]
         outputs = Φ(
-          t=t, x=x, y=Y[i], h=h, F=F, 
+          t=t, x=x, y=Y[i], h=h, F=F,
           **filter_keys(bwd_pass_details, ('t', 'x', 'h', 'F')),
         ) - Y[i]
         grads = torch.autograd.grad(

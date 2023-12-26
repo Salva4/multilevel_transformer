@@ -46,7 +46,7 @@ def apply_first_order_correction(model, dldΘ, level, c):
       p.grad += dldθ
 
 def run_cycle(
-  model, optimizer, prepare_inputs, num_batches, mu, nu, num_levels, c, 
+  model, optimizer, prepare_inputs, num_batches, mu, nu, num_levels, c,
   multilevel_interpolation,
 ):
   dldΘ_register = [None]*num_levels
@@ -81,7 +81,7 @@ def run_cycle(
   return loss
 
 def _MGOPT(
-  mgopt_mu, mgopt_nu, mgopt_num_levels, mgopt_cycle, mgopt_num_iterations, 
+  mgopt_mu, mgopt_nu, mgopt_num_levels, mgopt_cycle, mgopt_num_iterations,
   *args, **kwargs,
 ):
   return MGOPT(
@@ -100,7 +100,7 @@ def MGOPT(
 
   for iteration in range(num_iterations):
     loss = run_cycle(
-      model, optimizer, prepare_inputs, num_batches, mu, nu, num_levels, c, 
+      model, optimizer, prepare_inputs, num_batches, mu, nu, num_levels, c,
       multilevel_interpolation,
     )
     losses.append(loss.item())

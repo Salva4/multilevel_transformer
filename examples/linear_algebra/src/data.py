@@ -71,12 +71,12 @@ class Vocabulary:
 class ParallelTextDataset(Dataset):
   def __init__(
     self, src_file_path, tgt_file_path, src_vocab=None, tgt_vocab=None, 
-    extend_vocab=False, device='cuda', debug=False,
+    extend_vocab=False, device='cuda',
   ):
     (self.data, self.src_vocab, self.tgt_vocab, self.src_max_seq_length,
      self.tgt_max_seq_length) = self.parallel_text_to_data(
       src_file_path, tgt_file_path, src_vocab, tgt_vocab, extend_vocab,
-      device, debug,
+      device,
     )
 
   def __getitem__(self, idx): return self.data[idx]
@@ -84,7 +84,8 @@ class ParallelTextDataset(Dataset):
 
   def parallel_text_to_data(
     self, src_file, tgt_file, src_vocab=None, tgt_vocab=None, 
-    extend_vocab=False, device='cuda', debug=False):
+    extend_vocab=False, device='cuda',
+  ):
     # Convert paired src/tgt texts into torch.tensor data.
     # All sequences are padded to the length of the longest sequence
     # of the respective file.
@@ -180,8 +181,7 @@ def obtain_data(_vars):
     tgt_file_path = DATASET_DIR + f"{TASK}_small/{TRAIN_FILE_NAME}{TARGETS_FILE_ENDING}"
 
   training_data_set = ParallelTextDataset(
-    src_file_path, tgt_file_path, extend_vocab=True, device=_vars.device, 
-    debug=_vars.debug,
+    src_file_path, tgt_file_path, extend_vocab=True, device=_vars.device,
   )
 
   # get the vocab
@@ -200,7 +200,7 @@ def obtain_data(_vars):
     dataset=training_data_set, batch_size=_vars.batch_size, shuffle=True)
 
   validation_data_loader = DataLoader(
-    dataset=validation_data_set, batch_size=_vars.batch_size, shuffle=False)
+    dataset=validation_data_set, batch_size=_vars.batch_size, shuffle=True)#False)
 
   _vars.data_sets = {
     'training': training_data_set,

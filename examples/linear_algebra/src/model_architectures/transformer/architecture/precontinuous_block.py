@@ -23,12 +23,12 @@ class PreContinuousBlock(nn.Module):
     self.embedding_encoder = nn.Embedding(
       num_embeddings=dim_alphabet_source, 
       embedding_dim=model_dimension,
-      padding_idx=source_vocabulary.pad_id,
+      # padding_idx=source_vocabulary.pad_id,
     )
     self.embedding_decoder = nn.Embedding(
       num_embeddings=dim_alphabet_target, 
       embedding_dim=model_dimension,
-      padding_idx=source_vocabulary.pad_id,
+      # padding_idx=target_vocabulary.pad_id,
     )
     self.positional_encoder = PositionalEncoding(model_dimension)
 

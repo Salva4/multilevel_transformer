@@ -9,7 +9,7 @@ from src_utils.monitoring import time_
 
 class AccuracyCounter: correct = 0; total = 0
 
-class GradientHandler: 
+class GradientHandler:
   ctr = 0
   def __init__(self, size, model, clipping_norm=None):
     self.size = size
@@ -24,18 +24,18 @@ class GradientHandler:
 def prepare_inputs(
   get_batch, device, criterion, compute_accuracy, details,
 ):
-    batch, get_batch_time = time_(get_batch)
+  batch, get_batch_time = time_(get_batch)
 
-    input, target = batch
-    input, target = input.to(device), target.to(device)
+  input, target = batch
+  input, target = input.to(device), target.to(device)
 
-    model_inputs = {
-      'input': input, 'target': target, 'criterion': criterion,
-      'compute_accuracy': compute_accuracy,
-    }
-    model_inputs.update(details)
+  model_inputs = {
+    'input': input, 'target': target, 'criterion': criterion,
+    'compute_accuracy': compute_accuracy,
+  }
+  model_inputs.update(details)
 
-    return model_inputs, get_batch_time
+  return model_inputs, get_batch_time
 
 def forward_pass(model, model_inputs, losses, accuracy_counter):
   model_outputs, batch_fwd_time = time_(model, **model_inputs)
@@ -50,7 +50,7 @@ def forward_pass(model, model_inputs, losses, accuracy_counter):
 
 def backward_pass(optimizer, loss, gradient_handler):
   batch_bwd_time = time_(loss.backward)
-  
+
   gradient_handler.ctr += 1
   if gradient_handler.ctr%gradient_handler.size == 0:
     if gradient_handler.clipping_norm is not None:
@@ -77,33 +77,43 @@ def update_output_loss_and_accuracy(
   output['accuracy'] = accuracy_counter.correct/accuracy_counter.total \
                        if compute_accuracy else None
 
+def clean_sentence(sentence):
+  pad_token, eos_token = '<pad>', '<eos>'
+  sentence = sentence.replace(pad_token, '')
+  first_eos = sentence.find(eos_token)
+  if first_eos != -1: sentence = sentence[:first_eos + len(eos_token)]
+
+  return sentence
+
 def print_example_(
   model, model_inputs, split, src_decoding_function, tgt_decoding_function,
 ):
-    model_inputs['input' ] = model_inputs['input' ][0:1]
-    model_inputs['target'] = model_inputs['target'][0:1]
+  model_inputs['input' ] = model_inputs['input' ][0:1]
+  model_inputs['target'] = model_inputs['target'][0:1]
 
-    model.eval()
-    with torch.no_grad():
-      model_outputs = model(**model_inputs)
-      print()
-      print(f'{split.capitalize()} example:')
-      print(f'''         Model input: {
-        src_decoding_function(model_inputs ['input'      ][0].tolist())
-      }''')
-      print(f'''    Model prediction: {
-        tgt_decoding_function(model_outputs['predictions'][0].tolist())
-      }''')
-      print(f'''              Target: {
-        tgt_decoding_function(model_outputs['target'     ][0].tolist())
-      }''')
-      print(f'''             Correct: {model_outputs['correct'] == 1}''')
-      print()
+  model.eval()
+  with torch.no_grad():
+    model_outputs = model(**model_inputs)
+    print()
+    print(f'{split.capitalize()} example:')
+    print(f'''         Model input: {clean_sentence(
+      src_decoding_function(model_inputs ['input'      ][0].tolist())
+    )}''')
+    print(f'''    Model prediction: {clean_sentence(
+      tgt_decoding_function(model_outputs['predictions'][0].tolist())
+    )}''')
+    print(f'''              Target: {clean_sentence(
+      tgt_decoding_function(model_outputs['target'     ][0].tolist())
+    )}''')
+    print(f'''             Correct: {
+      'Yes' if model_outputs['correct'] == 1 else 'No'
+    }''')
+    print()
 
-    model.train()
-    
+  model.train()
+
 def train_conventional(
-  prepare_inputs, forward_pass, backward_pass, num_batches, print_example, 
+  prepare_inputs, forward_pass, backward_pass, num_batches, print_example,
   print_times,
 ):
   for batch_idx in range(num_batches):
@@ -117,7 +127,7 @@ def train_conventional(
 def train(
   model, optimizer, device, criterion, get_batch, num_batches,
   compute_accuracy=False, print_example=False, src_decoding_function=None,
-  tgt_decoding_function=None, print_times=False, use_mgopt=False, 
+  tgt_decoding_function=None, print_times=False, use_mgopt=False,
   gradient_accumulation_size=1, gradient_clipping_norm=None, **details,
 ):
   output = {}
@@ -139,7 +149,7 @@ def train(
     optimizer, loss, gradient_handler,
   )
   _print_example = lambda *args, **kwargs: print_example_(
-    model=model, src_decoding_function=src_decoding_function, 
+    model=model, src_decoding_function=src_decoding_function,
     tgt_decoding_function=tgt_decoding_function, *args, **kwargs,
   ) if print_example else None
 
@@ -152,7 +162,7 @@ def train(
   else:
     train_mgopt(
       model=model, optimizer=optimizer, prepare_inputs=_prepare_inputs,
-      num_batches=num_batches, losses=losses, print_example=_print_example, 
+      num_batches=num_batches, losses=losses, print_example=_print_example,
       **details,
     )
 
@@ -188,7 +198,7 @@ def evaluate(
   )
 
   if print_example: print_example_(
-    model, model_inputs, 'validation', src_decoding_function, 
+    model, model_inputs, 'validation', src_decoding_function,
     tgt_decoding_function,
   )
 

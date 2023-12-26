@@ -17,10 +17,15 @@ class ContinuousBlock(nn.Module):
   ):
     super().__init__()
     self.num_layers = num_layers
+    ## Debug:
+    # self.layers = nn.ModuleList(
+    #   [ContinuousLayer(ResidualLayer=ResidualLayer, #seed=0,#i,
+    #                                               **kwargs) \
+    #    for i in range(self.num_layers)]
+    # )
+    continuous_layer = ContinuousLayer(ResidualLayer=ResidualLayer, **kwargs)
     self.layers = nn.ModuleList(
-      [ContinuousLayer(ResidualLayer=ResidualLayer, #seed=0,#i,
-                                                  **kwargs) \
-       for i in range(self.num_layers)]
+      [copy.deepcopy(continuous_layer) for i in range(self.num_layers)]
     )
     self.continuous_block_idx = continuous_block_idx
     self.name = ResidualLayer.name if 'name' in dir(ResidualLayer) \
@@ -32,7 +37,7 @@ class ContinuousBlock(nn.Module):
       state.update(layer(**state))
 
       if store_hidden_states:
-        if not self.name in state['hidden_states']: 
+        if not self.name in state['hidden_states']:
           state['hidden_states'][self.name] = []
 
         state['hidden_states'][self.name].append(
@@ -109,7 +114,7 @@ class Model(nn.Module):
     # torch.manual_seed(0)
     self.postcontinuous_block = \
       postcontinuous_block_module.PostContinuousBlock(**kwargs)
-    
+
     ## Weights initialization
     if initialize_weights:
       # for p in self.parameters(): p.data.zero_()
@@ -120,7 +125,7 @@ class Model(nn.Module):
       self.device = kwargs['device']
       self.to(self.device)
 
-  def initialize_weights(self, module):    
+  def initialize_weights(self, module):
     if isinstance(module, nn.Linear):
       module.weight.data.normal_(mean=0., std=1.)
       if module.bias is not None: module.bias.data.zero_()
@@ -138,7 +143,7 @@ class Model(nn.Module):
 
   @staticmethod
   def static_forward(
-    model, input, target=None, criterion=None, compute_accuracy=False, 
+    model, input, target=None, criterion=None, compute_accuracy=False,
     store_hidden_states=False, **state,
   ):
     if target is not None or criterion is not None:
@@ -155,9 +160,9 @@ class Model(nn.Module):
     ## Forward pass ###################
     state.update(model.precontinuous_block (**state))
 
-    if store_hidden_states: 
+    if store_hidden_states:
       hidden_states['precontinuous_block'] = {
-        'x': state['x'].clone() if state['x'] is not None else None, 
+        'x': state['x'].clone() if state['x'] is not None else None,
         'y': state['y'].clone() if state['y'] is not None else None,
       }
 
@@ -166,7 +171,7 @@ class Model(nn.Module):
         continuous_block(**state, store_hidden_states=store_hidden_states)
       )
 
-      # if store_hidden_states: 
+      # if store_hidden_states:
       #   hidden_states[f'continuous_block_{i}'].append(
       #     state[continuous_block.state_symbol].clone(),
       #   )
@@ -178,7 +183,7 @@ class Model(nn.Module):
         'x': state['x'].clone(), 'y': state['y'].clone(),
       }
     ###################################
-    
+
     target = state['target']
 
     # print(f'''state['x'].shape {state['x'].shape}''')
@@ -207,9 +212,9 @@ class Model(nn.Module):
               total = not_pad.sum().item()
 
             elif compute_accuracy == 'sentences':
-              pad = (target == pad_id)
-              correct = torch.logical_or(predictions == target, target == pad) \
-                        .prod(dim=1).sum(dim=0).item()
+              correct = torch.logical_or(
+                predictions == target, target == pad_id
+              ).prod(dim=1).sum(dim=0).item()
               total = predictions.shape[0]
 
             state['predictions'] = predictions

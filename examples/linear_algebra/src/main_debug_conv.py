@@ -38,7 +38,6 @@ parser.add_argument('--n_lays_enc', type=int, default=4)#3)
 parser.add_argument('--n_lays_dec', type=int, default=4)#2)
 parser.add_argument('--opt', type=str, default='Adam')
 parser.add_argument('--save', action='store_true')
-parser.add_argument('--dropout', type=float, default=0.)
 args = parser.parse_args()
 
 import datetime as dt
@@ -215,7 +214,7 @@ class ParallelTextDataset(Dataset):
             data_list.append((src_list[i], tgt_list[i]))
 
         print("Done.")
-
+            
         return data_list, src_vocab, tgt_vocab, src_max, tgt_max
 
 
@@ -414,7 +413,7 @@ def train(model, optimizer, loss_function, train_data_loader, valid_data_loader,
 
   # Constants
   n_gradients_update = 1#10   # (for gradients accumulation)
-  n_monitoring = 5000#500#500*50
+  n_monitoring = 2#500#500*50
   iter_valid_data_loader = iter(valid_data_loader)
 
   # Initialise variables
@@ -447,6 +446,8 @@ def train(model, optimizer, loss_function, train_data_loader, valid_data_loader,
       loss = loss_function(outputs_alphabet_dim1, targets_output)
       predictions = outputs.argmax(dim=2)
 
+      print(loss)
+
       # Backward
       loss.backward()
       counter_gradients_update += 1
@@ -464,6 +465,8 @@ def train(model, optimizer, loss_function, train_data_loader, valid_data_loader,
       # Monitoring
       losses_temp_training.append(loss.item())
       counter_monitoring += 1
+      if counter_monitoring == 4: sys.exit()
+      # if counter_monitoring == 1001: sys.exit()
       if first_loss:
         text = f'first training loss {loss.item() : .4e}'
         print(colored(text, 'blue') if colour_imported else text)
@@ -490,7 +493,7 @@ def train(model, optimizer, loss_function, train_data_loader, valid_data_loader,
 
           losses_temp_validation = []
           correct_validation, total_validation = 0, 0
-          for _ in range(500):#50):
+          for _ in range(3):#50):
             # (II) validation set
             batch = next(iter_valid_data_loader, None)
             if batch == None:
@@ -498,17 +501,20 @@ def train(model, optimizer, loss_function, train_data_loader, valid_data_loader,
               batch = next(iter_valid_data_loader)
 
             sources, targets = batch
-            targets_output = targets[:, 1:]
+            # targets_output = targets[:, 1:]
+            targets_input, targets_output = targets[:, :-1], targets[:, 1:]   # 6.2
 
             # Forward
             # Greedy
-            outputs, predictions = greedy(
-              model, 
-              sources, 
-              targets.size()[1]-1, 
-              vocabulary_target
-            )   # outputs:     (batch, <eos>-ed length, alphabet)
-                # predictions: (batch, <eos>-ed length)
+            # outputs, predictions = greedy(
+            #   model, 
+            #   sources, 
+            #   targets.size()[1]-1, 
+            #   vocabulary_target
+            # )   # outputs:     (batch, <eos>-ed length, alphabet)
+            #     # predictions: (batch, <eos>-ed length)
+            outputs = model(sources, targets_input)
+            predictions = outputs.argmax(dim=-1)
 
             targets_output = targets_output[:, :predictions.size()[1]]
                                                         # (batch, <eos>-ed length)
@@ -516,6 +522,8 @@ def train(model, optimizer, loss_function, train_data_loader, valid_data_loader,
                                               # (batch, alphabet, <eos>-ed length)
             loss = loss_function(outputs_alphabet_dim1, targets_output)
             losses_temp_validation.append(loss.item())
+
+            print(loss.item())
 
             correct_validation += torch.logical_or(
               predictions == targets_output, 
@@ -542,26 +550,13 @@ def train(model, optimizer, loss_function, train_data_loader, valid_data_loader,
           print(f'time monitor: {t_monitor - t0_monitor}s')
           t0_monitor = t_monitor
 
-          if args.save:
-            model_state = {'model_state': model.state_dict(),
-                           'optimizer': optimizer.state_dict()}
-            torch.save(model_state,
-              f'{args.dir_models}/model_{datetime}_1.pt')
-            torch.save(model_state,
-              f'{args.dir_models}/model_{datetime}_2.pt')
-            if not written_description:
-                with open(f'{args.dir_models}/description.txt', 'a') as f:
-                    f.write(f'model_{datetime}:: ')
-                    for (k,v) in sorted(args.__dict__.items()): f.write(f'{k}: {v}; ')
-                    f.write('\n')
-                written_description = True
         model.train()
 
-      # Stop because time limit was exceeded.
-      if time.time()-t0 >= time_limit_minutes * 60:
-        print(f'Time limit of {time_limit_minutes} minutes has been exceeded.')
-        finished = True
-        break
+      # # Stop because time limit was exceeded.
+      # if time.time()-t0 >= time_limit_minutes * 60:
+      #   print(f'Time limit of {time_limit_minutes} minutes has been exceeded.')
+      #   finished = True
+      #   break
 
   return (model, optimizer, losses_training, losses_validation, 
           accuracies_training, accuracies_validation)
@@ -646,8 +641,13 @@ def plot_training(losses_training, losses_validation, accuracies_training,
 ######################################
 '''
 
+task = 'algebra__linear_1d'
+args.debug = True
+if args.debug: task += '_small'
+
 ######################## MAIN FUNCTION
-def main(task):
+# def main(task):
+if 1:
   torch.manual_seed(0)
 
   src_file_path = DATASET_DIR + f"{task}/{TRAIN_FILE_NAME}{INPUTS_FILE_ENDING}"
@@ -670,11 +670,10 @@ def main(task):
   batch_size = 64
 
   train_data_loader = DataLoader(
-      dataset=train_set, batch_size=batch_size, shuffle=True)
+      dataset=train_set, batch_size=batch_size, shuffle=False)#True)
 
   valid_data_loader = DataLoader(
-      dataset=valid_set, batch_size=batch_size, shuffle=True)#False)
-
+      dataset=valid_set, batch_size=batch_size, shuffle=False)#True)#False)
 
   # 7.1 Training & hyper-parameters + 7.3 Hyper-parameter tuning
   # Parameters
@@ -683,7 +682,7 @@ def main(task):
   num_enc_layers = args.n_lays_enc#5
   num_dec_layers = args.n_lays_dec#2
   dim_ff = 1024
-  dropout = args.dropout#0#0.1   # Value by default in nn.Transformer and its submodules
+  dropout = 0#0.1   # Value by default in nn.Transformer and its submodules
   learning_rate = args.lr#1e-4
 
   # Model
@@ -718,8 +717,8 @@ def main(task):
 
   # plot_training(losses_training, losses_validation, accuracies_training, 
   #               accuracies_validation)
-  
-  return model
+
+  # return model
 ######################################
 
 
@@ -728,10 +727,6 @@ def main(task):
 # Choose your task by commenting/uncommenting the following lines:
 #task = 'numbers__place_value'
 #task = 'comparison__sort'
-task = 'algebra__linear_1d'
-# args.debug = True
-if args.debug: task += '_small'
-model = main(task)
 ######################################
 
 

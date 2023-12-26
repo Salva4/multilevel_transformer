@@ -15,6 +15,8 @@ from continuous_model.gradient_function_dec import GradientFunction \
 
 ## Debug
 from continuous_model.fwd_bwd_pass.solve_sequential import solve_sequential
+from continuous_model.fwd_bwd_pass.solve_sequential_dec \
+                              import solve_sequential as solve_sequential_dec
 
 class ContinuousBlock(nn.Module):
   def __init__(
@@ -60,17 +62,21 @@ class ContinuousBlock(nn.Module):
     fwd_pass_details.update(ode_fwd_details)
 
     ## No-debug:
-    gradient_fn = GradientFunction_enc if self.state_symbol == 'x' else \
-                  GradientFunction_dec
-    x = gradient_fn.apply(x, y, use_mgrit, fwd_pass_details)
+    # gradient_fn = GradientFunction_enc if self.state_symbol == 'x' else \
+    #               GradientFunction_dec
+    # x = gradient_fn.apply(x, y, use_mgrit, fwd_pass_details)
 
     ## Debug 1/2 (2/2 in solve_sequential):
-    # h = T/N
-    # LAYERS_IDX_CONSTANT = {'Forward Euler': 1, 'Heun': 1, 'RK4': 2}
-    # def F(t, x, **other_F_inputs):
-    #   return ψ[round(t/h*LAYERS_IDX_CONSTANT[ode_solver])](x, **other_F_inputs)
-    # fwd_pass_details['F'] = F
-    # x = solve_sequential(x, **fwd_pass_details)
+    _solve_sequential = solve_sequential if self.state_symbol == 'x' else \
+                        solve_sequential_dec
+    h = T/N
+    LAYERS_IDX_CONSTANT = {'Forward Euler': 1, 'Heun': 1, 'RK4': 2}
+    def F(t, x, y, **other_F_inputs):
+      return ψ[round(t/h*LAYERS_IDX_CONSTANT[ode_solver])](
+        x=x, y=y, **other_F_inputs,
+      )
+    fwd_pass_details['F'] = F
+    x = _solve_sequential(x0=x, y=y, **fwd_pass_details)
 
     output[self.state_symbol] = x
 
@@ -125,6 +131,7 @@ class ContinuousBlock(nn.Module):
         i += 1
 
     else: raise Exception()  # add: quadratic splines & cubic splines
+
 
 
 

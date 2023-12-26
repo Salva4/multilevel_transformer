@@ -46,8 +46,26 @@ class ContinuousBlock(nn.Module):
     T = self.T
     c = self.c
     Φ = self.Φ
-    ode_solver = self.ode_solver
     ψ = self.ψ[::c**level]
+
+    ## Just added
+    if fwd_pass_details.get('ode_solver', self.ode_solver) != self.ode_solver:
+      ode_solver = fwd_pass_details['ode_solver']
+      Φ = obtain_Φ(ode_solver)
+
+      if self.ode_solver == 'Forward Euler' or \
+        (self.ode_solver == 'Heun' and ode_solver == 'RK4'):
+        raise Exception('New ODE solver cannot be more complex than the default one.')
+
+      if self.ode_solver == 'Heun':  #(ode_solver == 'Forward Euler')
+        ψ = ψ[:-1]
+      elif ode_solver == 'Heun':  # (self.ode_solver = 'RK4')
+        ψ = ψ[::2]
+      elif ode_solver == 'Forward Euler':  # (self.ode_solver == 'RK4')
+        ψ = ψ[:-1:2]
+
+    else: ode_solver = self.ode_solver
+    ####
 
     assert N > 0, f'Level {level} incompatible with {self.N} layers at the finest level and a coarsening factor of {self.c}'
 
@@ -127,6 +145,7 @@ class ContinuousBlock(nn.Module):
         i += 1
 
     else: raise Exception()  # add: quadratic splines & cubic splines
+
 
 
 
