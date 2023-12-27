@@ -101,56 +101,59 @@ class ContinuousBlock(nn.Module):
     # ψ_coarse = self.ψ[::c**(fine_level+1)]
 
     if interpolation == 'constant':
-      for i in range(c, len(ψ_fine), c):
-        _ψ_coarse1 = ψ_fine[i-c]
-        # _ψ_coarse2 = ψ_fine[i]
+      num_coarse_nodes = (len(ψ_fine) - 1)//c + 1
+      for i in range(num_coarse_nodes):
+        _ψ_coarse = ψ_fine[c*i]
 
         for ii in range(1, c):
-          _ψ_to_interpolate = ψ_fine[i - c + ii]
-          for p_c1, p_to_interpolate in zip(
-            _ψ_coarse1.parameters(), _ψ_to_interpolate.parameters(),
-          ):
-            # p_to_interpolate.data = p_c1.data
-            p_to_interpolate.data = p_c1.data.clone()
+          if c*i + ii == len(ψ_fine): break
 
-      while i < len(ψ_fine) - 1:
-        for p_last, p_to_interpolate in zip(
-          ψ_fine[i].parameters(), ψ_fine[i+1].parameters(),
-        ):
-          # p_to_interpolate.data = p_last.data
-          p_to_interpolate.data = p_last.data.clone()
+          _ψ_to_interpolate = ψ_fine[c*i + ii]
 
-        i += 1
-
-    elif interpolation == 'linear':
-      for i in range(c, len(ψ_fine), c):
-        _ψ_coarse1 = ψ_fine[i-c]
-        _ψ_coarse2 = ψ_fine[i]
-
-        for ii in range(1, c):
-          _ψ_to_interpolate = ψ_fine[i - c + ii]
-          for p_c1, p_c2, p_to_interpolate in zip(
-            _ψ_coarse1.parameters(),
-            _ψ_coarse2.parameters(),
+          for p_c, p_to_interpolate in zip(
+            _ψ_coarse        .parameters(),
             _ψ_to_interpolate.parameters(),
           ):
-            # p_to_interpolate.data = (1 - ii/c)*p_c1.data + (ii/c)*p_c2.data
-            p_to_interpolate.data = (1 - ii/c)*p_c1.data.clone() + (ii/c)*p_c2.data.clone()
+            p_to_interpolate.data = p_c.data.clone()
 
-      while i < len(ψ_fine) - 1:
-        for p_lastbutone, p_last, p_to_interpolate in zip(
-          ψ_fine[i-1].parameters(),
-          ψ_fine[i  ].parameters(),
-          ψ_fine[i+1].parameters(),
+
+    elif interpolation == 'linear':
+      num_coarse_nodes = (len(ψ_fine) - 1)//c + 1
+      for i in range(num_coarse_nodes - 1):
+        _ψ_coarse1 = ψ_fine[c*i]
+        _ψ_coarse2 = ψ_fine[c*(i+1)]
+
+        for ii in range(1, c):
+          if c*i + ii == len(ψ_fine): break
+
+          _ψ_to_interpolate = ψ_fine[c*i + ii]
+
+          for p_c1, p_c2, p_to_interpolate in zip(
+            _ψ_coarse1       .parameters(),
+            _ψ_coarse2       .parameters(),
+            _ψ_to_interpolate.parameters(),
+          ):
+            p_to_interpolate.data = \
+              (1 - ii/c)*p_c1.data.clone() + (ii/c)*p_c2.data.clone()
+
+      ## If there aren't any more coarse nodes, don't extrapolate but copy.
+      i = num_coarse_nodes - 1
+      _ψ_last_coarse_node = ψ_fine[c*i]
+
+      p_to_interpolate.data = p_last.data.clone()
+
+      for ii in range(1, c):
+        if c*i + ii == len(ψ_fine): break
+
+        _ψ_to_interpolate = ψ_fine[c*i + ii]
+
+        for p_c_last, p_to_interpolate in zip(
+          _ψ_last_coarse_node.parameters(),
+          _ψ_to_interpolate  .parameters(),
         ):
-          # p_to_interpolate.data = \
-          #   p_last.data + (p_last.data - p_lastbutone.data)
-          p_to_interpolate.data = \
-            p_last.data.clone() + (p_last.data.clone() - p_lastbutone.data.clone())
+          p_to_interpolate.data = p_c_last.data.clone()
 
-        i += 1
-
-    else: raise Exception()  # add: quadratic splines & cubic splines
+    else: raise Exception()  # future work: quadratic splines & cubic splines
 
 
 
