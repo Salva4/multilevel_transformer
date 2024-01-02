@@ -101,6 +101,8 @@ class ContinuousBlock(nn.Module):
     # ψ_coarse = self.ψ[::c**(fine_level+1)]
 
     if interpolation == 'constant':
+      print(f'Applying constant weights interpolation.')
+      
       num_coarse_nodes = (len(ψ_fine) - 1)//c + 1
       for i in range(num_coarse_nodes):
         _ψ_coarse = ψ_fine[c*i]
@@ -118,6 +120,8 @@ class ContinuousBlock(nn.Module):
 
 
     elif interpolation == 'linear':
+      print(f'Applying linear weights interpolation.')
+
       num_coarse_nodes = (len(ψ_fine) - 1)//c + 1
       for i in range(num_coarse_nodes - 1):
         _ψ_coarse1 = ψ_fine[c*i]
