@@ -53,7 +53,6 @@ class ContinuousBlock(nn.Module):
     T = self.T
     c = self.c
     Φ = self.Φ
-    ode_solver = self.ode_solver
     ψ = self.ψ[::c**level]
 
     if fwd_pass_details.get('ode_solver', self.ode_solver) != self.ode_solver:
@@ -104,7 +103,7 @@ class ContinuousBlock(nn.Module):
 
     return output
 
-  def interpolate_weights(self, level, interpolation):
+  def interpolate_weights(self, fine_level, interpolation):
     c = self.c
     ψ_fine = self.ψ[::c**fine_level]
     # ψ_coarse = self.ψ[::c**(fine_level+1)]
@@ -126,7 +125,6 @@ class ContinuousBlock(nn.Module):
             _ψ_to_interpolate.parameters(),
           ):
             p_to_interpolate.data = p_c.data.clone()
-
 
     elif interpolation == 'linear':
       print(f'Applying linear weights interpolation.')
@@ -152,8 +150,6 @@ class ContinuousBlock(nn.Module):
       ## If there aren't any more coarse nodes, don't extrapolate but copy.
       i = num_coarse_nodes - 1
       _ψ_last_coarse_node = ψ_fine[c*i]
-
-      p_to_interpolate.data = p_last.data.clone()
 
       for ii in range(1, c):
         if c*i + ii == len(ψ_fine): break

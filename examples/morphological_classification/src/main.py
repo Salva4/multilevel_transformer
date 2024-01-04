@@ -179,7 +179,8 @@ def main():
           print_times=False,
           get_batch=lambda: get_batch('training'), 
           level=level,
-          **filter_keys(_vars.__dict__, ('model',)),
+          # ode_solver='Heun',
+          **filter_keys(_vars.__dict__, ('model', 'ode_solver')),
         )
 
       ## Evaluation
@@ -189,7 +190,8 @@ def main():
         print_times=False,
         get_batch=lambda: get_batch('validation'), 
         level=level,
-        **filter_keys(_vars.__dict__, ('model',)),
+        # ode_solver='Heun',
+        **filter_keys(_vars.__dict__, ('model', 'ode_solver')),
       )
 
       if epoch > 0: 

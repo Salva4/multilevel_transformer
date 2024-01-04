@@ -44,7 +44,7 @@ def forward_pass(model, model_inputs, losses, accuracy_counter):
 
   if model_inputs['compute_accuracy']:
     accuracy_counter.correct += model_outputs['correct']
-    accuracy_counter.total += model_outputs['total']
+    accuracy_counter.total   += model_outputs['total']
 
   return loss, accuracy_counter, batch_fwd_time
 
@@ -162,7 +162,8 @@ def train(
   else:
     train_mgopt(
       model=model, optimizer=optimizer, prepare_inputs=_prepare_inputs,
-      num_batches=num_batches, losses=losses, print_example=_print_example,
+      num_batches=num_batches, losses=losses, 
+      accuracy_counter=accuracy_counter, print_example=_print_example,
       **details,
     )
 
