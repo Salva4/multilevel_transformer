@@ -1,11 +1,11 @@
 
 print('Importing packages...')#, end=' ')
 import copy
+import sys
 import torch
 import torch.nn as nn
 from transformers import AutoTokenizer
 # from transformers.models.marian.modeling_marian import MarianMTModel
-import sys
 print('-> Done.\n')
 
 print('Importing local files...')#, end=' ')

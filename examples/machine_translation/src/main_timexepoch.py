@@ -1,15 +1,15 @@
-## This code is adapted from my (Marc Salvadó Benasco) final project delivery
-##...(Assignment 4) of the Deep Learning Lab course in in 2021, Autumn 
-##...semester, at Università della Svizzera Italiana.
 
-print('Importing packages...')
+print('Importing packages...')#, end=' ')
 import copy
 import sys
+import time
 import torch
 import torch.nn as nn
+from transformers import AutoTokenizer
+# from transformers.models.marian.modeling_marian import MarianMTModel
 print('-> Done.\n')
 
-print('Importing local files...')
+print('Importing local files...')#, end=' ')
 sys.path.append('../../../src/')
 from model.model import Model
 from continuous_model.continuous_model import ContinuousModel
@@ -18,24 +18,37 @@ from src_utils.optimizer import initialize_optimizer
 
 from argument_parsing import parse_arguments, assert_and_correct_arguments
 from data import obtain_data
+from generation import generate
 print('-> Done.\n')
 
-print('Parsing arguments...')
+print('Parsing arguments...')#, end=' ')
 args = parse_arguments()
 assert_and_correct_arguments(args)
 print('-> Done.\n')
 print(f'Args: {args}')
 
 _vars = copy.deepcopy(args)
+# _vars.debug = True
+# _vars.model_dimension = 8
+# _vars.num_heads = 2
+# _vars.dim_ff = 16
 
 def main():
   _vars.device = 'cuda' if torch.cuda.is_available() else 'cpu'
   print(f'Device: {_vars.device}\n')
 
   torch.manual_seed(args.seed)
-  
-  ## DATA
-  print('1. Loading data')
+
+  _vars.name_model = "Helsinki-NLP/opus-mt-en-de"
+  print('Loading pre-trained tokenizer...', end=' ')
+  _vars.tokenizer = AutoTokenizer.from_pretrained(_vars.name_model)
+  print('-> Done.\n')
+
+  _vars.pad_token_id = _vars.tokenizer.pad_token_id
+  _vars.bos_token_id = _vars.pad_token_id
+  _vars.eos_token_id = _vars.tokenizer.eos_token_id
+
+  print('1. Loading data...')
   obtain_data(_vars)
   print(f"Number of training batches: {  len(_vars.data_loaders['training'  ])}")
   print(f"Number of validation batches: {len(_vars.data_loaders['validation'])}")
@@ -46,10 +59,9 @@ def main():
     _vars.num_encoder_layers, _vars.num_decoder_layers,
   ]
   _vars.model = Model(
-    continuous_blocks_num_layers=continuous_blocks_num_layers,
-    initialize_weights=False, **_vars.__dict__,
+    continuous_blocks_num_layers=continuous_blocks_num_layers, 
+    initialize_weights=True, **_vars.__dict__,
   )
-  print('-> Done.\n')
 
   if _vars.continuous:
     print(' 2.1 Turning the model continuous')
@@ -61,14 +73,22 @@ def main():
     )
     print(' -> Done.\n')
 
+  # print(_vars.model)
+
+  # for p in _vars.pretrained_model.parameters(): print(p.shape, p.ravel()[:5])
+  # print('change')
+  # for p in _vars.           model.parameters(): print(p.shape, p.ravel()[:5])
+  # sys.exit()
+
+  # self, model = _vars.model, _vars.pretrained_model
+
+  _vars.model.generate = lambda *args, **kwargs: generate(*args, **kwargs)
+
   _vars.optimizer = initialize_optimizer(**_vars.__dict__)
-  _vars.criterion = nn.CrossEntropyLoss(
-    ignore_index=_vars.target_vocabulary.pad_id,
-  )
+  _vars.criterion = nn.CrossEntropyLoss(ignore_index=_vars.pad_token_id)
 
   print(f'3. Training models')
 
-  _vars.splits = ['training', 'validation']
   _vars.data_loader_iterators = dict(zip(
     _vars.splits, [iter(_vars.data_loaders[split]) for split in _vars.splits],
   ))
@@ -76,14 +96,16 @@ def main():
   def get_batch(split):
     batch = next(_vars.data_loader_iterators[split], None)
 
-    if batch is None:
+    if batch is None: 
       _vars.data_loader_iterators[split] = iter(_vars.data_loaders[split])
       batch = next(_vars.data_loader_iterators[split], None)
       if batch is None: 
         raise Exception(f'Length of {split} data loader is 0.')
 
-    input, target = batch
+    input, target = batch['input_ids'], batch['labels']
     batch = (input, target)
+
+    # print(f'input {input.ravel()[:3]} target {target.ravel()[:3]}')
 
     return batch
 
@@ -97,20 +119,10 @@ def main():
 
   num_training_batches = _vars.num_training_batches \
     if _vars.num_training_batches is not None \
-    else 5000#500#len(_vars.data_loaders['training'])
+    else len(_vars.data_loaders['training'])
   num_validation_batches = _vars.num_validation_batches \
     if _vars.num_validation_batches is not None \
-    else 500#50#len(_vars.data_loaders['validation'])
-
-  ## Decoding functions for example printing:
-  src_decoding_function = lambda x: ''.join(
-    [_vars.source_vocabulary.id_to_string[xi] for xi in x]
-  )
-  tgt_decoding_function = lambda x: ''.join(
-    [_vars.target_vocabulary.id_to_string[xi] for xi in x]
-  )
-
-  print('\n*Attention*: Accuracy is computed w.r.t. whole sentences.\n')
+    else len(_vars.data_loaders['validation'])
 
   for k, (num_epochs, level, learning_rate, momentum) in enumerate(zip(
     num_epochs_list, levels_list, learning_rate_list, momentum_list,
@@ -125,59 +137,38 @@ def main():
 
     # print(f'Optimizer: {_vars.optimizer}\n')
 
-    for epoch in range(num_epochs + 1):#tqdm.tqdm(range(num_epochs + 1)):
+    for epoch in range(num_epochs + 1):
       ## Training
       if epoch > 0:
+        t0 = time.time()
         training_output = _vars.model.train_(
-          num_batches=num_training_batches,
-          get_batch=lambda: get_batch('training'),
-          compute_accuracy='sentences',#True,
-          print_example=True,
-          src_decoding_function=src_decoding_function,
-          tgt_decoding_function=tgt_decoding_function,
-          print_times=False,
-          level=level,
+          num_batches=num_training_batches,#100, 
+          compute_accuracy=False, 
+          print_times=False, 
+          get_batch=lambda: get_batch('training'), 
           **filter_keys(_vars.__dict__, ('model',)),
         )
+        print(f'Epoch time: {time.time() - t0}')
 
       ## Evaluation
       validation_output = _vars.model.evaluate(
-        num_batches=num_validation_batches,
-        get_batch=lambda: get_batch('validation'),
-        compute_accuracy='sentences',#True,
-        print_example=True,
-        src_decoding_function=src_decoding_function,
-        tgt_decoding_function=tgt_decoding_function,
-        print_times=False,
-        level=level,
+        num_batches=num_validation_batches,#100, 
+        compute_accuracy=False, 
+        print_times=False, 
+        get_batch=lambda: get_batch('validation'), 
         **filter_keys(_vars.__dict__, ('model',)),
       )
 
       if epoch > 0: 
         print(f'Epoch: {epoch}')
-        print(f'''  training loss: {training_output['loss']}, ''' \
-            + f'''training accuracy: {training_output['accuracy']*100}%''')
-        print(f'''  validation loss: {validation_output['loss']}, ''' \
-            + f'''validation accuracy: {validation_output['accuracy']*100}%''')
+        print(f'''  training loss: {training_output['loss']}''')
+        print(f'''  validation loss: {validation_output['loss']}''')
       else: 
         print(f'Epoch: {epoch}')
-        print(f'''  validation loss: {validation_output['loss']}, ''' \
-            + f'''validation accuracy: {validation_output['accuracy']*100}%''')
+        print(f'''  validation loss: {validation_output['loss']}, ''')
 
     if k != len(num_epochs_list) - 1:
-      ## We assume that the changes from coarse to fine are of exactly 1 level
-      old_level, new_level = levels_list[k : k+2]
       print(f' Changing from level {levels_list[k]} to level {levels_list[k+1]}')
-
-      if old_level > new_level:
-        assert old_level - new_level == 1, 'Changes upwards cannot jump more than one level.'
-        print(f' Interpolating weights')
-        _vars.model.interpolate_weights(
-          fine_level=new_level,
-          interpolation=_vars.multilevel_interpolation,
-        )
-        print(' -> Done.\n')
-
   print('-> Done.\n')
 
 if __name__ == '__main__': main()

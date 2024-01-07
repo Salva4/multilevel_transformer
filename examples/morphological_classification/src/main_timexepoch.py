@@ -1,9 +1,7 @@
-## This code is adapted from my (Marc Salvadó Benasco) final project delivery
-##...(Assignment 4) of the Deep Learning Lab course in in 2021, Autumn 
-##...semester, at Università della Svizzera Italiana.
 
 print('Importing packages...')
 import copy
+import time
 import torch
 import torch.nn as nn
 import sys
@@ -29,22 +27,85 @@ print(f'Args: {args}')
 _vars = copy.deepcopy(args)
 
 def main():
+  ## debug mode #######################
+  if _vars.debug:
+    _vars.batch_size = 2
+    # _vars.continuous = True
+    _vars.max_length = 10
+    _vars.num_layers = 8#2
+    _vars.T = float(_vars.num_layers)
+  #####################################
+
+  # assert_arguments(_vars)
+
   _vars.device = 'cuda' if torch.cuda.is_available() else 'cpu'
   print(f'Device: {_vars.device}\n')
 
-  torch.manual_seed(args.seed)
-  
+  torch.manual_seed(_vars.seed)
+
   ## DATA
   print('1. Loading data')
-  obtain_data(_vars)
+  obtain_data(_vars)#tqdm.tqdm(obtain_data(_vars))
   print(f"Number of training batches: {  len(_vars.data_loaders['training'  ])}")
   print(f"Number of validation batches: {len(_vars.data_loaders['validation'])}")
   print('-> Done.\n')
 
+  ############## ML weights initialization
+  # ## Init with fewer layers? Information is at N
+  # Ns = args.N.split('-')
+  # nums_epochs = args.num_epochs.split('-')
+  # lr = args.lr
+  # for i, N_str in enumerate(Ns):
+  #   N = int(N_str)
+  #   if i != 0:
+  #     lr *= args.lr_factor
+
+  #   ## Training setup 2/2
+  #   model = Model(
+  #     args.init.capitalize(),
+  #     args.pe.capitalize(),
+  #     T=args.T,
+  #     N=N,
+  #     # interpol=args.interpol.lower(),
+  #   ).to(device)
+  #   optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
+  #   ## Initialize fine model with coarse model
+  #   if i != 0:
+  #     # model.continuous_block.init_weights_from_model(coarse_model)
+  #     model.init_weights_from_model(coarse_model)
+  #   else:
+  #     model.init_params()
+
+  #   ## Training
+  #   # num_epochs = args.num_epochs//len(Ns)
+  #   num_epochs = int(nums_epochs[i])
+  #   coarse_model = train(training_dataloader, validation_dataloader, model, optimizer,
+  #     criterion, device, num_epochs, args.n_monitoring)
+
+  #   print(f'Training finished for N={N}')
+  ########################################
+
+  ################################# MG/OPT
+  # print(f'2. Initializing models')
+  # models = []
+  # optimizers = []
+  # for lvl in tqdm.tqdm(range(args.n_lvls)):
+  #   N = args.N // 2**(args.n_lvls - lvl - 1)  # From coarse to fine
+  #   model = Model(
+  #     init_method = 'None' if lvl != (args.n_lvls - 1) else args.init.capitalize(),
+  #     encoding = args.pe.capitalize(),
+  #     T = args.T,
+  #     N = N,# + 1,    # ((main's N (MGOPT) is multiple of power of 2; model's N is (a power of 2) + 1)) <-- not anymore
+  #   ).to(device)
+  #   models.append(model)
+
+  #   optimizer = (torch.optim.Adam if args.optimizer == 'Adam' else torch.optim.SGD)(model.parameters(), lr=args.lr)
+  #   optimizers.append(optimizer)
+  ########################################
+
   print('2. Building model')
-  continuous_blocks_num_layers = [
-    _vars.num_encoder_layers, _vars.num_decoder_layers,
-  ]
+  continuous_blocks_num_layers = [_vars.num_layers]
   _vars.model = Model(
     continuous_blocks_num_layers=continuous_blocks_num_layers,
     initialize_weights=False, **_vars.__dict__,
@@ -53,26 +114,21 @@ def main():
 
   if _vars.continuous:
     print(' 2.1 Turning the model continuous')
-    continuous_blocks_T = [_vars.encoder_T, _vars.decoder_T]
+    continuous_blocks_T = [_vars.T]
     _vars.model = ContinuousModel(
-      continuous_blocks_T=continuous_blocks_T,
-      is_encoder_decoder_transformer=True,
-      **_vars.__dict__,
+      continuous_blocks_T=continuous_blocks_T, **_vars.__dict__,
     )
     print(' -> Done.\n')
 
   _vars.optimizer = initialize_optimizer(**_vars.__dict__)
-  _vars.criterion = nn.CrossEntropyLoss(
-    ignore_index=_vars.target_vocabulary.pad_id,
-  )
+  _vars.criterion = nn.CrossEntropyLoss(ignore_index=_vars.pad_token_id)
 
   print(f'3. Training models')
 
-  _vars.splits = ['training', 'validation']
   _vars.data_loader_iterators = dict(zip(
     _vars.splits, [iter(_vars.data_loaders[split]) for split in _vars.splits],
   ))
-
+  
   def get_batch(split):
     batch = next(_vars.data_loader_iterators[split], None)
 
@@ -97,20 +153,10 @@ def main():
 
   num_training_batches = _vars.num_training_batches \
     if _vars.num_training_batches is not None \
-    else 5000#500#len(_vars.data_loaders['training'])
+    else len(_vars.data_loaders['training'])
   num_validation_batches = _vars.num_validation_batches \
     if _vars.num_validation_batches is not None \
-    else 500#50#len(_vars.data_loaders['validation'])
-
-  ## Decoding functions for example printing:
-  src_decoding_function = lambda x: ''.join(
-    [_vars.source_vocabulary.id_to_string[xi] for xi in x]
-  )
-  tgt_decoding_function = lambda x: ''.join(
-    [_vars.target_vocabulary.id_to_string[xi] for xi in x]
-  )
-
-  print('\n*Attention*: Accuracy is computed w.r.t. whole sentences.\n')
+    else len(_vars.data_loaders['validation'])
 
   for k, (num_epochs, level, learning_rate, momentum) in enumerate(zip(
     num_epochs_list, levels_list, learning_rate_list, momentum_list,
@@ -126,43 +172,41 @@ def main():
     # print(f'Optimizer: {_vars.optimizer}\n')
 
     for epoch in range(num_epochs + 1):#tqdm.tqdm(range(num_epochs + 1)):
+      t0_epoch = time.time()
       ## Training
       if epoch > 0:
         training_output = _vars.model.train_(
           num_batches=num_training_batches,
-          get_batch=lambda: get_batch('training'),
-          compute_accuracy='sentences',#True,
-          print_example=True,
-          src_decoding_function=src_decoding_function,
-          tgt_decoding_function=tgt_decoding_function,
+          compute_accuracy=True, 
           print_times=False,
+          get_batch=lambda: get_batch('training'), 
           level=level,
-          **filter_keys(_vars.__dict__, ('model',)),
+          # ode_solver='Heun',
+          **filter_keys(_vars.__dict__, ('model', 'ode_solver')),
         )
+      print(f'Time x (traning) epoch: {time.time() - t0_epoch}')
 
       ## Evaluation
       validation_output = _vars.model.evaluate(
         num_batches=num_validation_batches,
-        get_batch=lambda: get_batch('validation'),
-        compute_accuracy='sentences',#True,
-        print_example=True,
-        src_decoding_function=src_decoding_function,
-        tgt_decoding_function=tgt_decoding_function,
+        compute_accuracy=True, 
         print_times=False,
+        get_batch=lambda: get_batch('validation'), 
         level=level,
-        **filter_keys(_vars.__dict__, ('model',)),
+        # ode_solver='Heun',
+        **filter_keys(_vars.__dict__, ('model', 'ode_solver')),
       )
 
       if epoch > 0: 
         print(f'Epoch: {epoch}')
         print(f'''  training loss: {training_output['loss']}, ''' \
-            + f'''training accuracy: {training_output['accuracy']*100}%''')
+            + f'''training accuracy: {training_output['accuracy']}''')
         print(f'''  validation loss: {validation_output['loss']}, ''' \
-            + f'''validation accuracy: {validation_output['accuracy']*100}%''')
+            + f'''validation accuracy: {validation_output['accuracy']}''')
       else: 
         print(f'Epoch: {epoch}')
         print(f'''  validation loss: {validation_output['loss']}, ''' \
-            + f'''validation accuracy: {validation_output['accuracy']*100}%''')
+            + f'''validation accuracy: {validation_output['accuracy']}''')
 
     if k != len(num_epochs_list) - 1:
       ## We assume that the changes from coarse to fine are of exactly 1 level

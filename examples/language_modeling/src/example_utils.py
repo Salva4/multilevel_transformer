@@ -1,3 +1,4 @@
+import torch
 
 def obtain_model_name(_vars):
   model_name = ''
@@ -48,14 +49,16 @@ def load_model(model, optimizer, model_name1, model_name2):
   if 'error' in other_states: print(f"Error: {other_states['error']}")
   else                      : print('Model successfully loaded.')
 
-def generate_text(model, device, decoding_function, max_new_tokens, **kwargs):
+def generate_text(
+  generating_fn, model, device, decoding_function, max_new_tokens, **kwargs
+):
   model.eval()
   bos_token = '<|endoftext|>'
   bos_token_id = 50256#tokenizer('<|endoftext|>')['input_ids'][0]
   context = torch.empty((1, 1), dtype=torch.long, device=device).fill_(bos_token_id)
   print(
     decoding_function(
-      generate(
+      generating_fn(
         model=model, x=context, max_new_tokens=max_new_tokens, **kwargs,
       )[0].tolist()
     )

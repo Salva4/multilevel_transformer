@@ -2,9 +2,9 @@
 
 print('Importing packages...')#, end=' ')
 import copy
+import sys
 import torch
 import torch.nn as nn
-import sys
 print('-> Done.\n')
 
 print('Importing local files...')#, end=' ')
@@ -155,7 +155,9 @@ def main():
 
   if _vars.generate:
     print('\n4. Generating text')
-    generate_text(**_vars.__dict__)
+    generate_text(
+      generating_fn=generate, **filter_keys(_vars.__dict__, ('criterion'))
+    )
     print('-> Done.\n')
 
 if __name__ == '__main__': main()

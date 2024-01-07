@@ -2,9 +2,10 @@
 
 print('Importing packages...')#, end=' ')
 import copy
+import sys
+import time
 import torch
 import torch.nn as nn
-import sys
 print('-> Done.\n')
 
 print('Importing local files...')#, end=' ')
@@ -122,6 +123,7 @@ def main():
     # print(f'Optimizer: {_vars.optimizer}\n')
 
     for epoch in range(num_epochs + 1):
+      t0_epoch = time.time()
       ## Training
       if epoch > 0:
         training_output = _vars.model.train_(
@@ -131,6 +133,7 @@ def main():
           get_batch=lambda: get_batch('training'),
           **filter_keys(_vars.__dict__, ('model',)),
         )
+        print(f'Epoch time: {time.time() - t0_epoch}')
 
       ## Evaluation
       validation_output = _vars.model.evaluate(
@@ -155,7 +158,9 @@ def main():
 
   if _vars.generate:
     print('\n4. Generating text')
-    generate_text(**_vars.__dict__)
+    generate_text(
+      generating_fn=generate, **filter_keys(_vars.__dict__, ('criterion'))
+    )
     print('-> Done.\n')
 
 if __name__ == '__main__': main()

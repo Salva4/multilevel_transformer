@@ -1,8 +1,9 @@
 import numpy as np
 import os
+import sys
+# import time
 import torch
 import torch.nn as nn
-import sys
 
 from .continuous_block         import ContinuousBlock
 from .continuous_block_enc_dec import ContinuousBlock \
@@ -64,8 +65,10 @@ class ContinuousModel(nn.Module):
   def forward(self, **state): return self.model.static_forward(self, **state)
 
   def interpolate_weights(self, fine_level, interpolation):
+    # t0 = time.time()
     for continuous_block in self.continuous_blocks:
       continuous_block.interpolate_weights(fine_level, interpolation)
+    # print(f'Interpolation time: {time.time() - t0} seconds')
 
   def train_(self, **kwargs):
     '''Arguments:
