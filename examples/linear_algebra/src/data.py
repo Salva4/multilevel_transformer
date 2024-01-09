@@ -212,7 +212,8 @@ def obtain_data(_vars):
   }
   _vars.source_vocabulary = src_vocab
   _vars.target_vocabulary = tgt_vocab
-  _vars.target_max_length = training_data_loader
+  _vars.source_max_length = training_data_set.src_max_seq_length
+  _vars.target_max_length = training_data_set.tgt_max_seq_length
 
 
 
