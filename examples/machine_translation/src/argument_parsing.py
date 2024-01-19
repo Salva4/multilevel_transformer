@@ -41,6 +41,7 @@ def parse_arguments():
   ## MGOPT
   parser.add_argument('--use_mgopt'           , action='store_true'   )
   parser.add_argument('--mgopt_mu'            , type=int, default=None)
+  parser.add_argument('--mgopt_mu_coarsest'   , type=int, default=None)
   parser.add_argument('--mgopt_nu'            , type=int, default=None)
   parser.add_argument('--mgopt_num_levels'    , type=int, default=None)
   parser.add_argument('--mgopt_cycle'         , type=str, default=None)
@@ -104,6 +105,7 @@ def assert_and_correct_arguments(args):
     'mgrit_relaxation': 'F',
     'mgrit_num_iterations': 2,
     'mgopt_mu': 1,
+    'mgopt_mu_coarsest': 1,
     'mgopt_nu': 1,
     'mgopt_num_levels': 2,
     'mgopt_cycle': 'V',

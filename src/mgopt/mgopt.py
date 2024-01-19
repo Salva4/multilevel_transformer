@@ -8,7 +8,7 @@ def fwd_pass(model, model_inputs, compute_accuracy_if_pertinent=False):
   compute_accuracy = compute_accuracy_if_pertinent \
                  and model_inputs.get('compute_accuracy', False)
   model_outputs = model(
-    compute_accuracy=compute_accuracy, 
+    compute_accuracy=compute_accuracy,
     **filter_keys(model_inputs, ('compute_accuracy',))
   )
   loss    = model_outputs['loss'   ]
@@ -70,7 +70,7 @@ def subtract_generators(restricted_fine_gradient, coarse_gradient):
     yield dldθ_1.detach().clone() - dldθ_2.detach().clone()
 
 def apply_first_order_correction(model, dldΘ, level):
-  print('Applying first order correction')
+  # print('Applying first order correction')
   if dldΘ is None: return
   for continuous_block in model.continuous_blocks:
     # c = continuous_block.c  # hauria de sortir error
@@ -79,8 +79,8 @@ def apply_first_order_correction(model, dldΘ, level):
         p.grad += dldθ
 
 def run_cycle(
-  model, optimizer, prepare_inputs, num_batches, mu, nu, num_levels,
-  multilevel_interpolation,
+  model, optimizer, prepare_inputs, num_batches, mu, mu_coarsest, nu,
+  num_levels, multilevel_interpolation,
 ):
   dldΘ_register = [None]*num_levels
   for level in range(num_levels - 1):
@@ -99,14 +99,14 @@ def run_cycle(
     dldΘ_register[level + 1] = dldΘ
 
   ## Coarsest level
-  for coarse_iteration in range(mu):
+  for coarse_iteration in range(mu_coarsest):
     _ = train_miniepoch(
       model, optimizer, prepare_inputs, num_batches, level,
       dldΘ_register[level], compute_accuracy_if_pertinent=False,
     )
 
   for level in range(num_levels - 2, -1, -1):
-    ## Correction implicitly done: in our case, interpolation matrix is 
+    ## Correction implicitly done: in our case, interpolation matrix is
     ##...the identity for even nodes and 0 for the odd nodes. However, the
     ##...odd nodes are not modified at the coarse level.
     model.interpolate_weights(level, multilevel_interpolation)
@@ -120,18 +120,19 @@ def run_cycle(
   return loss, (correct, total)
 
 def _MGOPT(
-  mgopt_mu, mgopt_nu, mgopt_num_levels, mgopt_cycle, mgopt_num_iterations,
-  *args, **kwargs,
+  mgopt_mu, mgopt_mu_coarsest, mgopt_nu, mgopt_num_levels, mgopt_cycle,
+  mgopt_num_iterations, *args, **kwargs,
 ):
   return MGOPT(
-    mu=mgopt_mu, nu=mgopt_nu, num_levels=mgopt_num_levels, cycle=mgopt_cycle,
+    mu=mgopt_mu, mu_coarsest=mgopt_mu_coarsest, nu=mgopt_nu,
+    num_levels=mgopt_num_levels, cycle=mgopt_cycle,
     num_iterations=mgopt_num_iterations, *args, **kwargs,
   )
 
 def MGOPT(
-  model, optimizer, prepare_inputs, num_batches, mu, nu, num_levels, cycle,
-  multilevel_interpolation, num_iterations, losses, accuracy_counter, 
-  **kwargs,
+  model, optimizer, prepare_inputs, num_batches, mu, mu_coarsest, nu,
+  num_levels, cycle, multilevel_interpolation, num_iterations, losses,
+  accuracy_counter, **kwargs,
 ):
   model.train()
 
@@ -139,8 +140,8 @@ def MGOPT(
 
   for iteration in range(num_iterations):
     loss, (correct, total) = run_cycle(
-      model, optimizer, prepare_inputs, num_batches, mu, nu, num_levels,
-      multilevel_interpolation,
+      model, optimizer, prepare_inputs, num_batches, mu, mu_coarsest, nu,
+      num_levels, multilevel_interpolation,
     )
     losses.append(loss.item())
 

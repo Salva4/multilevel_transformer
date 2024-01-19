@@ -1,6 +1,6 @@
-## This code is adapted from my (Marc Salvadó Benasco) final project delivery
-##...(Assignment 4) of the Deep Learning Lab course in in 2021, Autumn 
-##...semester, at Università della Svizzera Italiana.
+## Data and model adapted from my (Marc Salvadó Benasco) final project
+##...delivery (Assignment 4) of the Deep Learning Lab course in in 2021,
+##...Autumn semester, at Università della Svizzera Italiana.
 
 print('Importing packages...')
 import copy
@@ -126,13 +126,17 @@ def main():
     # print(f'Optimizer: {_vars.optimizer}\n')
 
     for epoch in range(num_epochs + 1):#tqdm.tqdm(range(num_epochs + 1)):
-      # ## Multi-fidelity weights initialization experiment 1/3
+      ## Multi-fidelity weights initialization experiment 1/3
       # solver_change_epoch = 17
       # ode_solver = 'Forward Euler' if epoch < solver_change_epoch else 'Heun'
-      # if epoch == solver_change_epoch:  # change step size from 1 to 10
+      # if epoch == solver_change_epoch:
       #   print(f'Changing ODE solver from FE to Heun and step size from 1 to 10')
       #   for continuous_block in _vars.model.continuous_blocks:
-      #     continuous_block.T = 10*continuous_block.N
+      #     continuous_block.T = 10*continuous_block.N  # change step size from 1 to 10
+      #     for θ_last_but_1, θ_last in zip(  # initialize unused layer as the closest layer
+      #       continuous_block.ψ[-2].parameters(),
+      #       continuous_block.ψ[-1].parameters(),
+      #     ): θ_last.data = θ_last_but_1.data.clone()
 
       ## Training
       if epoch > 0:

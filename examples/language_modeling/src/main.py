@@ -1,4 +1,4 @@
-## Adapted from Karpathy's github: https://karpathy.ai/zero-to-hero.html
+## Data and original model from Anthony Karpathy's example from https://karpathy.ai/zero-to-hero.html
 
 print('Importing packages...')#, end=' ')
 import copy
@@ -127,6 +127,17 @@ def main():
       # ode_solver = 'Forward Euler' if epoch < solver_change_epoch else 'RK4'
       # if epoch == solver_change_epoch:
       #   print(f'Changing ODE solver from FE to RK4')
+      #   for continuous_block in _vars.model.continuous_blocks:
+      #     for i in range(0, len(continuous_block.ψ) - 2, 2):  # initialize unused layers for RK4 (t_n + h/2) using the closest layers
+      #       for θ_i, θ_ip1, θ_ip2 in zip(
+      #         continuous_block.ψ[i  ].parameters(),
+      #         continuous_block.ψ[i+1].parameters(),
+      #         continuous_block.ψ[i+2].parameters(),
+      #       ): θ_ip1.data = 1/2*(θ_i.data.clone() + θ_ip2.data.clone())
+      #     for θ_last_but_1, θ_last in zip(  # plus layer at t_n using t_{n-1} + h/2
+      #       continuous_block.ψ[-2].parameters(),
+      #       continuous_block.ψ[-1].parameters(),
+      #     ): θ_last.data = θ_last_but_1.data.clone()
 
       ## Training
       if epoch > 0:
