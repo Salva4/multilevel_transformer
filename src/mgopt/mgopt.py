@@ -48,7 +48,7 @@ def train_miniepoch(
   return np.mean(losses), (correct, total)
 
 def obtain_gradient_wrt_parameters(
-  model, optimizer, prepare_inputs, num_batches, level,
+  model, optimizer, prepare_inputs, num_batches, level, restrict=False,
 ):
   optimizer.zero_grad()
   for batch_idx in range(num_batches):
@@ -60,13 +60,20 @@ def obtain_gradient_wrt_parameters(
 
   for continuous_block in model.continuous_blocks:
     c = continuous_block.c
-    for _ψ in continuous_block.ψ[::c**level]:
+    for j, _ψ in enumerate(continuous_block.ψ[::c**level]):
+      if restrict and j%c != 0: continue
       for p in _ψ.parameters():
         yield p.grad
 
+def subtract_generators(restricted_fine_gradient, coarse_gradient):
+  for dldθ_1, dldθ_2 in zip(restricted_fine_gradient, coarse_gradient):
+    yield dldθ_1.detach().clone() - dldθ_2.detach().clone()
+
 def apply_first_order_correction(model, dldΘ, level):
+  print('Applying first order correction')
   if dldΘ is None: return
   for continuous_block in model.continuous_blocks:
+    # c = continuous_block.c  # hauria de sortir error
     for _ψ in continuous_block.ψ[::c**level]:
       for p, dldθ in zip(_ψ.parameters(), dldΘ):
         p.grad += dldθ
@@ -82,9 +89,14 @@ def run_cycle(
         model, optimizer, prepare_inputs, num_batches, level,
         dldΘ_register[level], compute_accuracy_if_pertinent=False,
       )
-    dldΘ_register[level + 1] = obtain_gradient_wrt_parameters(
-      model, optimizer, prepare_inputs, num_batches, level,
+    restricted_fine_gradient   = obtain_gradient_wrt_parameters(
+      model, optimizer, prepare_inputs, num_batches, level, restrict=True,
     )
+    coarse_gradient = obtain_gradient_wrt_parameters(
+      model, optimizer, prepare_inputs, num_batches, level + 1,
+    )
+    dldΘ = subtract_generators(restricted_fine_gradient, coarse_gradient)
+    dldΘ_register[level + 1] = dldΘ
 
   ## Coarsest level
   for coarse_iteration in range(mu):

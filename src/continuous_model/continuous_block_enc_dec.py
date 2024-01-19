@@ -57,7 +57,8 @@ class ContinuousBlock(nn.Module):
 
     if fwd_pass_details.get('ode_solver', self.ode_solver) != self.ode_solver:
       ode_solver = fwd_pass_details['ode_solver']
-      Φ = obtain_Φ(ode_solver)
+      Φ = obtain_Φ(ode_solver) if self.state_symbol=='x' else \
+          obtain_Φ_dec(ode_solver)
 
       if self.ode_solver == 'Forward Euler' or \
         (self.ode_solver == 'Heun' and ode_solver == 'RK4'):

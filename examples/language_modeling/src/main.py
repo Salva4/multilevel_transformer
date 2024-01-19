@@ -122,6 +122,12 @@ def main():
     # print(f'Optimizer: {_vars.optimizer}\n')
 
     for epoch in range(num_epochs + 1):
+      # ## Multi-fidelity weights initialization experiment 1/3
+      # solver_change_epoch = 23
+      # ode_solver = 'Forward Euler' if epoch < solver_change_epoch else 'RK4'
+      # if epoch == solver_change_epoch:
+      #   print(f'Changing ODE solver from FE to RK4')
+
       ## Training
       if epoch > 0:
         training_output = _vars.model.train_(
@@ -129,7 +135,8 @@ def main():
           compute_accuracy=False,
           print_times=False,
           get_batch=lambda: get_batch('training'),
-          **filter_keys(_vars.__dict__, ('model',)),
+          # ode_solver=ode_solver,  # for multi-fidelity weights initialization experiment 2/3
+          **filter_keys(_vars.__dict__, ('model', 'ode_solver')),
         )
 
       ## Evaluation
@@ -138,7 +145,8 @@ def main():
         compute_accuracy=False,
         print_times=False,
         get_batch=lambda: get_batch('validation'),
-        **filter_keys(_vars.__dict__, ('model',)),
+        # ode_solver=ode_solver,  # for multi-fidelity weights initialization experiment 3/3
+        **filter_keys(_vars.__dict__, ('model', 'ode_solver')),
       )
 
       if epoch > 0:

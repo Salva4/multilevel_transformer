@@ -126,6 +126,14 @@ def main():
     # print(f'Optimizer: {_vars.optimizer}\n')
 
     for epoch in range(num_epochs + 1):#tqdm.tqdm(range(num_epochs + 1)):
+      # ## Multi-fidelity weights initialization experiment 1/3
+      # solver_change_epoch = 17
+      # ode_solver = 'Forward Euler' if epoch < solver_change_epoch else 'Heun'
+      # if epoch == solver_change_epoch:  # change step size from 1 to 10
+      #   print(f'Changing ODE solver from FE to Heun and step size from 1 to 10')
+      #   for continuous_block in _vars.model.continuous_blocks:
+      #     continuous_block.T = 10*continuous_block.N
+
       ## Training
       if epoch > 0:
         training_output = _vars.model.train_(
@@ -137,7 +145,8 @@ def main():
           tgt_decoding_function=tgt_decoding_function,
           print_times=False,
           level=level,
-          **filter_keys(_vars.__dict__, ('model',)),
+          # ode_solver=ode_solver,  # for multi-fidelity weights initialization experiment 2/3
+          **filter_keys(_vars.__dict__, ('model', 'ode_solver')),
         )
 
       ## Evaluation
@@ -150,7 +159,8 @@ def main():
         tgt_decoding_function=tgt_decoding_function,
         print_times=False,
         level=level,
-        **filter_keys(_vars.__dict__, ('model',)),
+        # ode_solver=ode_solver,  # for multi-fidelity weights initialization experiment 3/3
+        **filter_keys(_vars.__dict__, ('model', 'ode_solver')),
       )
 
       if epoch > 0: 
