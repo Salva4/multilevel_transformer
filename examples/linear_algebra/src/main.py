@@ -90,6 +90,10 @@ def main():
       )
       print('Model successfully loaded (copy 2)')
 
+  print(f'''Number of model parameters: {
+    sum(θ.numel() for θ in _vars.model.parameters())
+  }''')
+
   print(f'3. Training models')
 
   _vars.splits = ['training', 'validation']

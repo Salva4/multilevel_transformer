@@ -86,9 +86,13 @@ def main():
   _vars.optimizer = initialize_optimizer(**_vars.__dict__)
   _vars.criterion = nn.CrossEntropyLoss()
 
-  model_name1, model_name2 = obtain_model_name(_vars)
-  if _vars.load:
-    load_model(_vars.model, _vars.optimizer, model_name1, model_name2)
+  # model_name1, model_name2 = obtain_model_name(_vars)
+  # if _vars.load:
+  #   load_model(_vars.model, _vars.optimizer, model_name1, model_name2)
+
+  print(f'''Number of model parameters: {
+    sum(θ.numel() for θ in _vars.model.parameters())
+  }''')
 
   print(f'3. Training model w/ {_vars.num_layers} decoder layers')
 

@@ -304,6 +304,10 @@ def main():
   _vars.optimizer = initialize_optimizer(**_vars.__dict__)
   _vars.criterion = nn.CrossEntropyLoss(ignore_index=_vars.pad_token_id)
 
+  print(f'''Number of model parameters: {
+    sum(θ.numel() for θ in _vars.model.parameters())
+  }''')
+
   print(f'3. Training models')
 
   _vars.data_loader_iterators = dict(zip(
