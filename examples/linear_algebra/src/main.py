@@ -4,7 +4,9 @@
 
 print('Importing packages...')
 import copy
+import os
 import sys
+import time
 import torch
 import torch.nn as nn
 print('-> Done.\n')
@@ -14,6 +16,7 @@ sys.path.append('../../../src/')
 from model.model import Model
 from continuous_model.continuous_model import ContinuousModel
 from src_utils.filter_dict import filter_keys
+from src_utils.model_name import obtain_model_name
 from src_utils.optimizer import initialize_optimizer
 
 from argument_parsing import parse_arguments, assert_and_correct_arguments
@@ -65,6 +68,27 @@ def main():
   _vars.criterion = nn.CrossEntropyLoss(
     ignore_index=_vars.target_vocabulary.pad_id,
   )
+
+  ## Model/Optimizer load
+  if _vars.load or _vars.save:
+    models_dir = os.path.join('..', 'experiments', 'MGOPT', 'models')
+    model_name1, model_name2 = obtain_model_name(args.__dict__)#f'num-coarse-its{_vars.mu_coarsest}_interpol{_vars.multilevel_interpolation}'
+    print(f'Saving/loading model name: {model_name1}')
+
+  if _vars.load:
+    print('Loading model...')
+    try:
+      _vars.model.load(
+        model_name=model_name1, models_dir=models_dir, 
+        optimizer=_vars.optimizer,
+      )
+      print('Model successfully loaded (copy 1)')
+    except:
+      _vars.model.load(
+        model_name=model_name2, models_dir=models_dir, 
+        optimizer=_vars.optimizer,
+      )
+      print('Model successfully loaded (copy 2)')
 
   print(f'3. Training models')
 
@@ -126,6 +150,8 @@ def main():
     # print(f'Optimizer: {_vars.optimizer}\n')
 
     for epoch in range(num_epochs + 1):#tqdm.tqdm(range(num_epochs + 1)):
+      t0_epoch = time.time()
+      
       # ## Multi-fidelity weights initialization experiment 1/3
       # solver_change_epoch = 17
       # ode_solver = 'Forward Euler' if epoch < solver_change_epoch else 'Heun'
@@ -142,13 +168,13 @@ def main():
       if epoch > 0:
         training_output = _vars.model.train_(
           num_batches=num_training_batches,
-          get_batch=lambda: get_batch('training'),
           compute_accuracy='sentences',#True,
+          print_times=False,
+          get_batch=lambda: get_batch('training'),
+          level=level,
           print_example=True,
           src_decoding_function=src_decoding_function,
           tgt_decoding_function=tgt_decoding_function,
-          print_times=False,
-          level=level,
           # ode_solver=ode_solver,  # for multi-fidelity weights initialization experiment 2/3
           **filter_keys(_vars.__dict__, ('model', 'ode_solver')),
         )
@@ -177,6 +203,15 @@ def main():
         print(f'Epoch: {epoch}')
         print(f'''  validation loss: {validation_output['loss']}, ''' \
             + f'''validation accuracy: {validation_output['accuracy']*100}%''')
+
+      print(f'Epoch time: {time.time() - t0_epoch}')
+
+      if _vars.save:
+        for model_name in [model_name1, model_name2]:
+          _vars.model.save(
+            fn_without_extension=model_name, models_dir=models_dir, 
+            optimizer=_vars.optimizer,
+          )
 
     if k != len(num_epochs_list) - 1:
       ## We assume that the changes from coarse to fine are of exactly 1 level

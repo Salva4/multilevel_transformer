@@ -1,9 +1,10 @@
 
 print('Importing packages...')
 import copy
+import sys
+import time
 import torch
 import torch.nn as nn
-import sys
 print('-> Done.\n')
 
 print('Importing local files...')
@@ -171,6 +172,8 @@ def main():
     # print(f'Optimizer: {_vars.optimizer}\n')
 
     for epoch in range(num_epochs + 1):#tqdm.tqdm(range(num_epochs + 1)):
+      t0_epoch = time.time()
+
       ## Training
       if epoch > 0:
         training_output = _vars.model.train_(
@@ -204,6 +207,8 @@ def main():
         print(f'Epoch: {epoch}')
         print(f'''  validation loss: {validation_output['loss']}, ''' \
             + f'''validation accuracy: {validation_output['accuracy']}''')
+
+      print(f'Epoch time: {time.time() - t0_epoch}')
 
     if k != len(num_epochs_list) - 1:
       ## We assume that the changes from coarse to fine are of exactly 1 level

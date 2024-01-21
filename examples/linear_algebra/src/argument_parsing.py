@@ -53,8 +53,8 @@ def parse_arguments():
   ## Debugging, seed and saving
   parser.add_argument('--debug', action='store_true')
   parser.add_argument('--seed' , type=int, default=0)
-  # parser.add_argument('--save' , action='store_true')
-  # parser.add_argument('--load' , action='store_true')
+  parser.add_argument('--save' , action='store_true')
+  parser.add_argument('--load' , action='store_true')
   # parser.add_argument('--models_dir', type=str, default=None)
   # parser.add_argument('--output_fn', type=str, default=None)
 

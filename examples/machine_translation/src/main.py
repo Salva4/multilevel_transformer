@@ -2,6 +2,7 @@
 print('Importing packages...')#, end=' ')
 import copy
 import sys
+import time
 import torch
 import torch.nn as nn
 from transformers import AutoTokenizer
@@ -354,6 +355,8 @@ def main():
     # print(f'Optimizer: {_vars.optimizer}\n')
 
     for epoch in range(num_epochs + 1):
+      t0_epoch = time.time()
+
       ## Training
       if epoch > 0:
         training_output = _vars.model.train_(
@@ -361,6 +364,7 @@ def main():
           compute_accuracy=False, 
           print_times=False, 
           get_batch=lambda: get_batch('training'), 
+          level=level,
           **filter_keys(_vars.__dict__, ('model',)),
         )
 
@@ -370,6 +374,7 @@ def main():
         compute_accuracy=False, 
         print_times=False, 
         get_batch=lambda: get_batch('validation'), 
+        level=level,
         **filter_keys(_vars.__dict__, ('model',)),
       )
 
@@ -380,6 +385,8 @@ def main():
       else: 
         print(f'Epoch: {epoch}')
         print(f'''  validation loss: {validation_output['loss']}, ''')
+
+      print(f'Epoch time: {time.time() - t0_epoch}')
 
     if k != len(num_epochs_list) - 1:
       print(f' Changing from level {levels_list[k]} to level {levels_list[k+1]}')

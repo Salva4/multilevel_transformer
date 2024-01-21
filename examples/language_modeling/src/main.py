@@ -3,6 +3,7 @@
 print('Importing packages...')#, end=' ')
 import copy
 import sys
+import time
 import torch
 import torch.nn as nn
 print('-> Done.\n')
@@ -122,6 +123,8 @@ def main():
     # print(f'Optimizer: {_vars.optimizer}\n')
 
     for epoch in range(num_epochs + 1):
+      t0_epoch = time.time()
+
       # ## Multi-fidelity weights initialization experiment 1/3
       # solver_change_epoch = 23
       # ode_solver = 'Forward Euler' if epoch < solver_change_epoch else 'RK4'
@@ -146,6 +149,7 @@ def main():
           compute_accuracy=False,
           print_times=False,
           get_batch=lambda: get_batch('training'),
+          level=level,
           # ode_solver=ode_solver,  # for multi-fidelity weights initialization experiment 2/3
           **filter_keys(_vars.__dict__, ('model', 'ode_solver')),
         )
@@ -156,6 +160,7 @@ def main():
         compute_accuracy=False,
         print_times=False,
         get_batch=lambda: get_batch('validation'),
+        level=level,
         # ode_solver=ode_solver,  # for multi-fidelity weights initialization experiment 3/3
         **filter_keys(_vars.__dict__, ('model', 'ode_solver')),
       )
@@ -167,6 +172,8 @@ def main():
       else:
         print(f'Epoch: {epoch}')
         print(f'''  validation loss: {validation_output['loss']}, ''')
+
+      print(f'Epoch time: {time.time() - t0_epoch}')
 
     if k != len(num_epochs_list) - 1:
       print(f' Changing from level {levels_list[k]} to level {levels_list[k+1]}')

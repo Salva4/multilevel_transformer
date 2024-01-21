@@ -259,7 +259,8 @@ class Model(nn.Module):
 
   def save(self, **kwargs):
     '''Arguments:
-      fn_without_extension=None, models_dir=None, optimizer=None, **other
+      model, fn_without_extension=None, models_dir=None, optimizer=None, 
+      **other,
     '''
     self.static_save(self, **kwargs)
 
@@ -267,7 +268,7 @@ class Model(nn.Module):
   def static_save(model, **kwargs): save_model(model, **kwargs)
 
   def load(self, **kwargs):
-    '''Arguments: model, model_path, optimizer=None'''
+    '''Arguments: model, model_name, models_dir=None, optimizer=None'''
     return self.static_load(self, **kwargs)
 
   @staticmethod
