@@ -17,14 +17,14 @@ def fwd_pass(model, model_inputs, compute_accuracy_if_pertinent=False):
 
   return loss, (correct, total)
 
-def bwd_pass(model, optimizer, loss, dldΘ, level):
+def bwd_pass(model, optimizer, loss, correction, level):
   optimizer.zero_grad()
   loss.backward()
-  apply_first_order_correction(model, dldΘ, level)
+  apply_first_order_correction(model, correction, level)
   optimizer.step()
 
 def train_miniepoch(
-  model, optimizer, prepare_inputs, num_batches, level, dldΘ,
+  model, optimizer, prepare_inputs, num_batches, level, correction,
   compute_accuracy_if_pertinent=False,
 ):
   losses = []
@@ -41,7 +41,7 @@ def train_miniepoch(
       correct += _correct
       total   += _total
 
-    bwd_pass(model, optimizer, loss, dldΘ, level)
+    bwd_pass(model, optimizer, loss, correction, level)
 
   if total == 0: correct, total = None, None
 
@@ -69,25 +69,25 @@ def subtract_generators(restricted_fine_gradient, coarse_gradient):
   for dldθ_1, dldθ_2 in zip(restricted_fine_gradient, coarse_gradient):
     yield dldθ_1.detach().clone() - dldθ_2.detach().clone()
 
-def apply_first_order_correction(model, dldΘ, level):
+def apply_first_order_correction(model, correction, level):
   # print('Applying first order correction')
-  if dldΘ is None: return
+  if correction is None: return
   for continuous_block in model.continuous_blocks:
     # c = continuous_block.c  # hauria de sortir error
     for _ψ in continuous_block.ψ[::c**level]:
-      for p, dldθ in zip(_ψ.parameters(), dldΘ):
-        p.grad += dldθ
+      for p, g in zip(_ψ.parameters(), correction):
+        p.grad += g
 
 def run_cycle(
   model, optimizer, prepare_inputs, num_batches, mu, mu_coarsest, nu,
   num_levels, multilevel_interpolation,
 ):
-  dldΘ_register = [None]*num_levels
+  corrections = [None]*num_levels
   for level in range(num_levels - 1):
     for presmoothing_iteration in range(mu):
       _ = train_miniepoch(
         model, optimizer, prepare_inputs, num_batches, level,
-        dldΘ_register[level], compute_accuracy_if_pertinent=False,
+        corrections[level], compute_accuracy_if_pertinent=False,
       )
     restricted_fine_gradient   = obtain_gradient_wrt_parameters(
       model, optimizer, prepare_inputs, num_batches, level, restrict=True,
@@ -95,14 +95,17 @@ def run_cycle(
     coarse_gradient = obtain_gradient_wrt_parameters(
       model, optimizer, prepare_inputs, num_batches, level + 1,
     )
-    dldΘ = subtract_generators(restricted_fine_gradient, coarse_gradient)
-    dldΘ_register[level + 1] = dldΘ
+    correction = subtract_generators(
+      restricted_fine_gradient, coarse_gradient,
+    )
+    # if level > 0: correction += correction[level]  <-- must be restricted !!
+    corrections[level + 1] = correction
 
   ## Coarsest level
   for coarse_iteration in range(mu_coarsest):
     _ = train_miniepoch(
       model, optimizer, prepare_inputs, num_batches, level,
-      dldΘ_register[level], compute_accuracy_if_pertinent=False,
+      corrections[level], compute_accuracy_if_pertinent=False,
     )
 
   for level in range(num_levels - 2, -1, -1):
@@ -114,7 +117,7 @@ def run_cycle(
     for postsmoothing_iteration in range(nu):
       loss, (correct, total) = train_miniepoch(
         model, optimizer, prepare_inputs, num_batches, level,
-        dldΘ_register[level], compute_accuracy_if_pertinent=True,
+        corrections[level], compute_accuracy_if_pertinent=True,
       )
 
   return loss, (correct, total)
