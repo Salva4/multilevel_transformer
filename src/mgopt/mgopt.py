@@ -73,7 +73,7 @@ def apply_first_order_correction(model, correction, level):
   # print('Applying first order correction')
   if correction is None: return
   for continuous_block in model.continuous_blocks:
-    # c = continuous_block.c  # hauria de sortir error
+    c = continuous_block.c
     for _ψ in continuous_block.ψ[::c**level]:
       for p, g in zip(_ψ.parameters(), correction):
         p.grad += g
@@ -102,6 +102,7 @@ def run_cycle(
     corrections[level + 1] = correction
 
   ## Coarsest level
+  level = num_levels - 1
   for coarse_iteration in range(mu_coarsest):
     _ = train_miniepoch(
       model, optimizer, prepare_inputs, num_batches, level,
