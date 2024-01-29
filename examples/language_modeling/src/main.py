@@ -76,13 +76,6 @@ def main():
     )#.to(device)
     print(' -> Done.\n')
 
-  # print(f'Model: {model}\n')
-  # print(
-  #   f'Number of model parameters:',
-  #   sum(parameter.numel() for parameter in _vars.model.parameters())/1e6,
-  #   '\n'
-  # )
-
   _vars.optimizer = initialize_optimizer(**_vars.__dict__)
   _vars.criterion = nn.CrossEntropyLoss()
 

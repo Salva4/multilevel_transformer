@@ -50,60 +50,6 @@ def main():
   print(f"Number of validation batches: {len(_vars.data_loaders['validation'])}")
   print('-> Done.\n')
 
-  ############## ML weights initialization
-  # ## Init with fewer layers? Information is at N
-  # Ns = args.N.split('-')
-  # nums_epochs = args.num_epochs.split('-')
-  # lr = args.lr
-  # for i, N_str in enumerate(Ns):
-  #   N = int(N_str)
-  #   if i != 0:
-  #     lr *= args.lr_factor
-
-  #   ## Training setup 2/2
-  #   model = Model(
-  #     args.init.capitalize(),
-  #     args.pe.capitalize(),
-  #     T=args.T,
-  #     N=N,
-  #     # interpol=args.interpol.lower(),
-  #   ).to(device)
-  #   optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-
-  #   ## Initialize fine model with coarse model
-  #   if i != 0:
-  #     # model.continuous_block.init_weights_from_model(coarse_model)
-  #     model.init_weights_from_model(coarse_model)
-  #   else:
-  #     model.init_params()
-
-  #   ## Training
-  #   # num_epochs = args.num_epochs//len(Ns)
-  #   num_epochs = int(nums_epochs[i])
-  #   coarse_model = train(training_dataloader, validation_dataloader, model, optimizer,
-  #     criterion, device, num_epochs, args.n_monitoring)
-
-  #   print(f'Training finished for N={N}')
-  ########################################
-
-  ################################# MG/OPT
-  # print(f'2. Initializing models')
-  # models = []
-  # optimizers = []
-  # for lvl in tqdm.tqdm(range(args.n_lvls)):
-  #   N = args.N // 2**(args.n_lvls - lvl - 1)  # From coarse to fine
-  #   model = Model(
-  #     init_method = 'None' if lvl != (args.n_lvls - 1) else args.init.capitalize(),
-  #     encoding = args.pe.capitalize(),
-  #     T = args.T,
-  #     N = N,# + 1,    # ((main's N (MGOPT) is multiple of power of 2; model's N is (a power of 2) + 1)) <-- not anymore
-  #   ).to(device)
-  #   models.append(model)
-
-  #   optimizer = (torch.optim.Adam if args.optimizer == 'Adam' else torch.optim.SGD)(model.parameters(), lr=args.lr)
-  #   optimizers.append(optimizer)
-  ########################################
-
   print('2. Building model')
   continuous_blocks_num_layers = [_vars.num_layers]
   _vars.model = Model(
@@ -132,14 +78,14 @@ def main():
   _vars.data_loader_iterators = dict(zip(
     _vars.splits, [iter(_vars.data_loaders[split]) for split in _vars.splits],
   ))
-  
+
   def get_batch(split):
     batch = next(_vars.data_loader_iterators[split], None)
 
     if batch is None:
       _vars.data_loader_iterators[split] = iter(_vars.data_loaders[split])
       batch = next(_vars.data_loader_iterators[split], None)
-      if batch is None: 
+      if batch is None:
         raise Exception(f'Length of {split} data loader is 0.')
 
     input, target = batch
@@ -178,36 +124,53 @@ def main():
     for epoch in range(num_epochs + 1):#tqdm.tqdm(range(num_epochs + 1)):
       t0_epoch = time.time()
 
+      # ## Multi-fidelity weights initialization experiment 1/3
+      # solver_change_epoch = 30
+      # ode_solver = 'Forward Euler' if epoch < solver_change_epoch else 'RK4'
+      # if epoch == solver_change_epoch:
+      #   print(f'Changing ODE solver from FE to RK4')
+      #   for continuous_block in _vars.model.continuous_blocks:
+      #     for i in range(0, len(continuous_block.ψ) - 2, 2):  # initialize unused layers for RK4 (t_n + h/2) using the closest layers
+      #       for θ_i, θ_ip1, θ_ip2 in zip(
+      #         continuous_block.ψ[i  ].parameters(),
+      #         continuous_block.ψ[i+1].parameters(),
+      #         continuous_block.ψ[i+2].parameters(),
+      #       ): θ_ip1.data = 1/2*(θ_i.data.clone() + θ_ip2.data.clone())
+      #     for θ_last_but_1, θ_last in zip(  # plus layer at t_n using t_{n-1} + h/2
+      #       continuous_block.ψ[-2].parameters(),
+      #       continuous_block.ψ[-1].parameters(),
+      #     ): θ_last.data = θ_last_but_1.data.clone()
+
       ## Training
       if epoch > 0:
         training_output = _vars.model.train_(
           num_batches=num_training_batches,
-          compute_accuracy=True, 
+          compute_accuracy=True,
           print_times=False,
-          get_batch=lambda: get_batch('training'), 
+          get_batch=lambda: get_batch('training'),
           level=level,
-          # ode_solver='Heun',
+          # ode_solver=ode_solver,  # for multi-fidelity weights initialization experiment 2/3
           **filter_keys(_vars.__dict__, ('model', 'ode_solver')),
         )
 
       ## Evaluation
       validation_output = _vars.model.evaluate(
         num_batches=num_validation_batches,
-        compute_accuracy=True, 
+        compute_accuracy=True,
         print_times=False,
-        get_batch=lambda: get_batch('validation'), 
+        get_batch=lambda: get_batch('validation'),
         level=level,
-        # ode_solver='Heun',
+        # ode_solver=ode_solver,  # for multi-fidelity weights initialization experiment 3/3
         **filter_keys(_vars.__dict__, ('model', 'ode_solver')),
       )
 
-      if epoch > 0: 
+      if epoch > 0:
         print(f'Epoch: {epoch}')
         print(f'''  training loss: {training_output['loss']}, ''' \
             + f'''training accuracy: {training_output['accuracy']}''')
         print(f'''  validation loss: {validation_output['loss']}, ''' \
             + f'''validation accuracy: {validation_output['accuracy']}''')
-      else: 
+      else:
         print(f'Epoch: {epoch}')
         print(f'''  validation loss: {validation_output['loss']}, ''' \
             + f'''validation accuracy: {validation_output['accuracy']}''')

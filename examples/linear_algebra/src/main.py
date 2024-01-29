@@ -36,7 +36,7 @@ def main():
   print(f'Device: {_vars.device}\n')
 
   torch.manual_seed(args.seed)
-  
+
   ## DATA
   print('1. Loading data')
   obtain_data(_vars)
@@ -79,13 +79,13 @@ def main():
     print('Loading model...')
     try:
       _vars.model.load(
-        model_name=model_name1, models_dir=models_dir, 
+        model_name=model_name1, models_dir=models_dir,
         optimizer=_vars.optimizer,
       )
       print('Model successfully loaded (copy 1)')
     except:
       _vars.model.load(
-        model_name=model_name2, models_dir=models_dir, 
+        model_name=model_name2, models_dir=models_dir,
         optimizer=_vars.optimizer,
       )
       print('Model successfully loaded (copy 2)')
@@ -107,7 +107,7 @@ def main():
     if batch is None:
       _vars.data_loader_iterators[split] = iter(_vars.data_loaders[split])
       batch = next(_vars.data_loader_iterators[split], None)
-      if batch is None: 
+      if batch is None:
         raise Exception(f'Length of {split} data loader is 0.')
 
     input, target = batch
@@ -155,9 +155,9 @@ def main():
 
     for epoch in range(num_epochs + 1):#tqdm.tqdm(range(num_epochs + 1)):
       t0_epoch = time.time()
-      
+
       # ## Multi-fidelity weights initialization experiment 1/3
-      # solver_change_epoch = 17
+      # solver_change_epoch = 80#50#17
       # ode_solver = 'Forward Euler' if epoch < solver_change_epoch else 'Heun'
       # if epoch == solver_change_epoch:
       #   print(f'Changing ODE solver from FE to Heun and step size from 1 to 10')
@@ -197,13 +197,13 @@ def main():
         **filter_keys(_vars.__dict__, ('model', 'ode_solver')),
       )
 
-      if epoch > 0: 
+      if epoch > 0:
         print(f'Epoch: {epoch}')
         print(f'''  training loss: {training_output['loss']}, ''' \
             + f'''training accuracy: {training_output['accuracy']*100}%''')
         print(f'''  validation loss: {validation_output['loss']}, ''' \
             + f'''validation accuracy: {validation_output['accuracy']*100}%''')
-      else: 
+      else:
         print(f'Epoch: {epoch}')
         print(f'''  validation loss: {validation_output['loss']}, ''' \
             + f'''validation accuracy: {validation_output['accuracy']*100}%''')
@@ -213,7 +213,7 @@ def main():
       if _vars.save:
         for model_name in [model_name1, model_name2]:
           _vars.model.save(
-            fn_without_extension=model_name, models_dir=models_dir, 
+            fn_without_extension=model_name, models_dir=models_dir,
             optimizer=_vars.optimizer,
           )
 

@@ -28,10 +28,6 @@ print('-> Done.\n')
 print(f'Args: {args}')
 
 _vars = copy.deepcopy(args)
-# _vars.debug = True
-# _vars.model_dimension = 8
-# _vars.num_heads = 2
-# _vars.dim_ff = 16
 
 def main():
   _vars.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -59,7 +55,7 @@ def main():
     _vars.num_encoder_layers, _vars.num_decoder_layers,
   ]
   _vars.model = Model(
-    continuous_blocks_num_layers=continuous_blocks_num_layers, 
+    continuous_blocks_num_layers=continuous_blocks_num_layers,
     initialize_weights=True, **_vars.__dict__,
   )
 
@@ -73,233 +69,7 @@ def main():
     )
     print(' -> Done.\n')
 
-  # print(_vars.model)
-
-  # for p in _vars.pretrained_model.parameters(): print(p.shape, p.ravel()[:5])
-  # print('change')
-  # for p in _vars.           model.parameters(): print(p.shape, p.ravel()[:5])
-  # sys.exit()
-
-  # self, model = _vars.model, _vars.pretrained_model
-
   _vars.model.generate = lambda *args, **kwargs: generate(*args, **kwargs)
-
-  # ## Debug forward pass ##################
-  # instance = next(iter(_vars.data_loaders['train']))
-  # src = instance['input_ids'].to(_vars.device)
-  # tgt = instance['labels'   ].to(_vars.device)
-  # model_inputs = {
-  #   'input': src, 'target': tgt, 
-  #   'criterion': nn.CrossEntropyLoss(ignore_index=58100),
-  #   'store_hidden_states': True,
-  # }
-  # outputs_model = _vars.model(**model_inputs)#['x']
-  # outputs_pretrained = _vars.pretrained_model(
-  #   input_ids=src, decoder_input_ids=tgt[:, :-1],
-  # )#['logits']
-  # import sys; sys.exit()
-
-  # ## Conventional transformer
-  # import numpy as np
-  # class ConvTrans(nn.Module):
-  #   def __init__(
-  #     self, model_dimension, num_heads, num_encoder_layers, num_decoder_layers,
-  #     dim_ff, device, tokenizer, pad_token_id, **kwargs,
-  # ):
-  #     super().__init__()
-  #     self.model_dimension = model_dimension
-  #     self.device = device
-
-  #     self.embedding = nn.Embedding(
-  #       len(tokenizer), model_dimension, padding_idx=pad_token_id,
-  #     )
-  #     self.positional_encoding_src = nn.Embedding(512, model_dimension)
-  #     self.positional_encoding_tgt = nn.Embedding(512, model_dimension)
-
-  #     self.transformer = nn.Transformer(
-  #       d_model=_vars.model_dimension, 
-  #       nhead=_vars.num_heads, 
-  #       num_encoder_layers=_vars.num_encoder_layers, 
-  #       num_decoder_layers=_vars.num_decoder_layers,
-  #       dim_feedforward=_vars.dim_ff,
-  #       dropout=0.,
-  #       norm_first=True,
-  #       device=_vars.device,
-  #       batch_first=True,
-  #     )
-  #     self.classifier = nn.Linear(model_dimension, len(tokenizer))
-
-  #   def forward(self, input, target, **kwargs):
-  #     src, tgt = input, target[:, :-1]
-  #     # mask_pad_src = torch.where(src.eq(self.pad_token_id), -np.inf, 0)  # mask_pad_src: [b, L]
-  #     # mask_pad_mem = mask_pad_src                                  # mask_pad_mem: [b, L]
-  #     # mask_pad_tgt = torch.where(tgt.eq(self.pad_token_id), -np.inf, 0)
-
-  #     ## Embedding
-  #     x = self.embedding(src)  # src: [b, L , d]
-  #     y = self.embedding(tgt)  # tgt: [b, L', d]
-
-  #     ## Scaling
-  #     x *= np.sqrt(self.model_dimension)
-  #     y *= np.sqrt(self.model_dimension)
-
-  #     ## Positional encoding
-  #     L, Lp = x.shape[1], y.shape[1]
-  #     positions_src = torch.arange(L ).reshape(1, L ).to(self.device)  # positions_src: [1, L ]
-  #     positions_tgt = torch.arange(Lp).reshape(1, Lp).to(self.device)  # positions_tgt: [1, L ]
-  #     positional_encoding_src = self.positional_encoding_src(positions_src)  # positions_src: [1, L , d]
-  #     positional_encoding_tgt = self.positional_encoding_tgt(positions_tgt)  # positions_src: [1, L , d]
-
-  #     x += positional_encoding_src  # src: [b, L , d]
-  #     y += positional_encoding_tgt  # tgt: [b, L , d]
-
-  #     y = self.transformer(src=x, tgt=y)
-
-  #     output = self.classifier(y)
-
-  #     # print(output.shape, target[: 1:].shape)
-
-  #     loss = nn.CrossEntropyLoss(ignore_index=58100)(
-  #       output.transpose(1,2), target[:, 1:],
-  #     )
-
-  #     return {'loss': loss}#output
-
-  # import numpy as np
-  # import sys; sys.path.append('model_architectures/transformer/model_utils')
-  # from F_enc import F_enc
-  # from F_dec import F_dec
-  # class ConvTrans(nn.Module):
-  #   def __init__(
-  #     self, model_dimension, num_heads, num_encoder_layers, num_decoder_layers,
-  #     dim_ff, device, tokenizer, pad_token_id, criterion, **kwargs,
-  # ):
-  #     super().__init__()
-  #     self.model_dimension = model_dimension  # aka 'd'
-  #     self.device = device
-  #     self.pad_token_id = pad_token_id
-  #     self.criterion = criterion
-
-  #     self.embedding = nn.Embedding(
-  #       len(tokenizer),
-  #       model_dimension,
-  #       padding_idx=pad_token_id,
-  #     )
-  #     self.positional_encoding_src = nn.Embedding(512, model_dimension)
-  #     self.positional_encoding_tgt = nn.Embedding(512, model_dimension)
-
-  #     self.F_encs = nn.ModuleList([
-  #         F_enc(model_dimension, num_heads, dim_ff) \
-  #         for _ in range(num_encoder_layers)
-  #     ])
-  #     self.F_decs = nn.ModuleList([
-  #         F_dec(model_dimension, num_heads, dim_ff) \
-  #         for _ in range(num_decoder_layers)
-  #     ])
-  #     self.classifier = nn.Linear(model_dimension, len(tokenizer))
-
-  #   def forward(self, input, target, **kwargs):
-  #     src, tgt, labels = input, target[:, :-1], target[:, 1:]
-
-  #     mask_pad_src = torch.where(src.eq(self.pad_token_id), -np.inf, 0)  # mask_pad_src: [b, L ]
-  #     mask_pad_tgt = torch.where(tgt.eq(self.pad_token_id), -np.inf, 0)  # mask_pad_tgt: [b, L']
-  #     mask_pad_mem = mask_pad_src                                        # mask_pad_mem: [b, L ]
-
-  #     ## Embedding
-  #     x = self.embedding(src)  # src: [b, L , d]
-  #     y = self.embedding(tgt)  # tgt: [b, L', d]
-
-  #     ## Scaling
-  #     x *= np.sqrt(self.model_dimension)
-  #     y *= np.sqrt(self.model_dimension)
-
-  #     ## Positional encoding
-  #     L, Lp = x.shape[1], y.shape[1]
-  #     positions_src = torch.arange(L ).reshape(1, L ).to(self.device)  # positions_src: [1, L ]
-  #     positions_tgt = torch.arange(Lp).reshape(1, Lp).to(self.device)  # positions_tgt: [1, L ]
-  #     positional_encoding_src = self.positional_encoding_src(positions_src)  # positions_src: [1, L , d]
-  #     positional_encoding_tgt = self.positional_encoding_tgt(positions_tgt)  # positions_src: [1, L , d]
-
-  #     x += positional_encoding_src  # src: [b, L , d]
-  #     y += positional_encoding_tgt  # tgt: [b, L , d]
-
-  #     # print(f'x {x.ravel()[:5]}')
-  #     # print(f'y {y.ravel()[:5]}')
-  #     # import sys; sys.exit()
-
-  #     for F in self.F_encs:
-  #       x = x + F(x, mask_pad_src)
-  #       # x = F(x=x, mask_pad_src=mask_pad_src)
-
-  #     for F in self.F_decs:
-  #       y = y + F(y, x, mask_pad_tgt, mask_pad_mem)
-  #       # y = F(x=y, memory=x, mask_pad_tgt=mask_pad_tgt, mask_pad_mem=mask_pad_mem)
-
-  #     output = self.classifier(y)
-
-  #     # print(output.shape, target[: 1:].shape)
-
-  #     loss = self.criterion(output.transpose(1,2), labels)
-
-  #     return {'loss': loss}#output
-
-  # _vars.criterion = nn.CrossEntropyLoss(ignore_index=_vars.pad_token_id)
-  # conv_trans = ConvTrans(**_vars.__dict__).to(_vars.device)
-
-  # outputs_conv = conv_trans(src, tgt[:, :-1])
-  # print(outputs_pretrained.ravel()[:10])
-  # print(outputs_model.ravel()[:10])
-  # print(outputs_conv .ravel()[:10])
-  # print(f'outputs_pretrained.shape {outputs_pretrained.shape}, ' \
-  #     + f'outputs_model.shape {outputs_model.shape}')
-  # print(torch.eq(outputs_pretrained, outputs_model).all().item())
-  # sys.exit()
-  ########################################
-
-  ## Debug generation ####################
-  # instance = next(iter(_vars.data_loaders['train']))
-  # src = instance['input_ids'].to(_vars.device)
-  # print(_vars.__dict__)
-  # outputs_model = _vars.model.generate(
-  #   src=src,
-  #   max_new_tokens=40, 
-  #   do_sample=False,#True, 
-  #   top_k=30, 
-  #   top_p=0.95,
-  #   **_vars.__dict__,
-  # )
-  # outputs_pretrained = _vars.pretrained_model.generate(
-  #   src,
-  #   max_new_tokens=40, 
-  #   do_sample=False,#True, 
-  #   top_k=30, 
-  #   top_p=0.95
-  # )
-  # print(outputs_pretrained)
-  # print(outputs_model)
-  # print(f'outputs_pretrained.shape {outputs_pretrained.shape}, ' \
-  #     + f'outputs_model.shape {outputs_model.shape}')
-  # print(torch.eq(outputs_pretrained, outputs_model).all().item())
-  # sys.exit()
-  ########################################
-
-  # torch.manual_seed(1)
-  # for p in _vars.model.parameters(): 
-  #   if p.dim() > 1: 
-  #     # print('pold', p.ravel()[:5])
-  #     nn.init.xavier_uniform_(p)
-  #     # print('pnew', p.ravel()[:5])
-  #   else: p.data.normal_()
-  # torch.manual_seed(1)
-  # for p in conv_trans.parameters(): 
-  #   if p.dim() > 1:
-  #     # print('pold', p.ravel()[:5])
-  #     nn.init.xavier_uniform_(p)
-  #     # print('pnew', p.ravel()[:5])
-  #   else: p.data.normal_()
-  # for p in _vars.model.parameters(): print(p.shape, p.ravel()[:4])
-  # for p in conv_trans.parameters(): print(p.shape, p.ravel()[:4])
-  # sys.exit()
 
   _vars.optimizer = initialize_optimizer(**_vars.__dict__)
   _vars.criterion = nn.CrossEntropyLoss(ignore_index=_vars.pad_token_id)
@@ -317,16 +87,14 @@ def main():
   def get_batch(split):
     batch = next(_vars.data_loader_iterators[split], None)
 
-    if batch is None: 
+    if batch is None:
       _vars.data_loader_iterators[split] = iter(_vars.data_loaders[split])
       batch = next(_vars.data_loader_iterators[split], None)
-      if batch is None: 
+      if batch is None:
         raise Exception(f'Length of {split} data loader is 0.')
 
     input, target = batch['input_ids'], batch['labels']
     batch = (input, target)
-
-    # print(f'input {input.ravel()[:3]} target {target.ravel()[:3]}')
 
     return batch
 
@@ -361,32 +129,51 @@ def main():
     for epoch in range(num_epochs + 1):
       t0_epoch = time.time()
 
+      # ## Multi-fidelity weights initialization experiment 1/3
+      # solver_change_epoch = 100
+      # ode_solver = 'Forward Euler' if epoch < solver_change_epoch else 'RK4'
+      # if epoch == solver_change_epoch:
+      #   print(f'Changing ODE solver from FE to RK4')
+      #   for continuous_block in _vars.model.continuous_blocks:
+      #     for i in range(0, len(continuous_block.ψ) - 2, 2):  # initialize unused layers for RK4 (t_n + h/2) using the closest layers
+      #       for θ_i, θ_ip1, θ_ip2 in zip(
+      #         continuous_block.ψ[i  ].parameters(),
+      #         continuous_block.ψ[i+1].parameters(),
+      #         continuous_block.ψ[i+2].parameters(),
+      #       ): θ_ip1.data = 1/2*(θ_i.data.clone() + θ_ip2.data.clone())
+      #     for θ_last_but_1, θ_last in zip(  # plus layer at t_n using t_{n-1} + h/2
+      #       continuous_block.ψ[-2].parameters(),
+      #       continuous_block.ψ[-1].parameters(),
+      #     ): θ_last.data = θ_last_but_1.data.clone()
+
       ## Training
       if epoch > 0:
         training_output = _vars.model.train_(
-          num_batches=num_training_batches,#100, 
-          compute_accuracy=False, 
-          print_times=False, 
-          get_batch=lambda: get_batch('training'), 
+          num_batches=num_training_batches,#100,
+          compute_accuracy=False,
+          print_times=False,
+          get_batch=lambda: get_batch('training'),
           level=level,
-          **filter_keys(_vars.__dict__, ('model',)),
+          # ode_solver=ode_solver,  # for multi-fidelity weights initialization experiment 2/3
+          **filter_keys(_vars.__dict__, ('model', 'ode_solver',)),
         )
 
       ## Evaluation
       validation_output = _vars.model.evaluate(
-        num_batches=num_validation_batches,#100, 
-        compute_accuracy=False, 
-        print_times=False, 
-        get_batch=lambda: get_batch('validation'), 
+        num_batches=num_validation_batches,#100,
+        compute_accuracy=False,
+        print_times=False,
+        get_batch=lambda: get_batch('validation'),
         level=level,
-        **filter_keys(_vars.__dict__, ('model',)),
+        # ode_solver=ode_solver,  # for multi-fidelity weights initialization experiment 3/3
+        **filter_keys(_vars.__dict__, ('model', 'ode_solver',)),
       )
 
-      if epoch > 0: 
+      if epoch > 0:
         print(f'Epoch: {epoch}')
         print(f'''  training loss: {training_output['loss']}''')
         print(f'''  validation loss: {validation_output['loss']}''')
-      else: 
+      else:
         print(f'Epoch: {epoch}')
         print(f'''  validation loss: {validation_output['loss']}, ''')
 
